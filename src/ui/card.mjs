@@ -7,6 +7,17 @@ import './appearance.mjs';
 const root=document.querySelector('#card-root'),nonce=location.hash.slice(1);
 let init,state={expanded:false,tab:'usage',loading:false,checking:true,error:'',data:null,task:null},busy=false,lastHeight=0,lastExpanded=false,readRevision=0,lastMarkup='';
 const parentMessage=(type,payload={})=>parent.postMessage({type,nonce,...payload},'*');
+// Keep controls mounted between pointer/key down and their native click event.
+let interactionActive=false,pendingRender=null,interactionTimer;
+const beginInteraction=()=>{clearTimeout(interactionTimer);interactionActive=true;};
+const finishInteraction=()=>{clearTimeout(interactionTimer);interactionTimer=setTimeout(()=>{interactionActive=false;const next=pendingRender;pendingRender=null;if(next)render(next);},0);};
+root.addEventListener('pointerdown',beginInteraction,{capture:true});
+root.addEventListener('pointerleave',()=>{if(interactionActive)finishInteraction();});
+document.addEventListener('pointerup',finishInteraction,{capture:true});
+document.addEventListener('pointercancel',finishInteraction,{capture:true});
+root.addEventListener('keydown',event=>{if(['Enter',' '].includes(event.key)&&event.target.closest('button,summary'))beginInteraction();},{capture:true});
+document.addEventListener('keyup',event=>{if(['Enter',' '].includes(event.key))finishInteraction();},{capture:true});
+window.addEventListener('blur',finishInteraction);
 new ResizeObserver(()=>{
   const height=Math.ceil(document.body.getBoundingClientRect().height);
   if(Math.abs(height-lastHeight)<1&&lastExpanded===state.expanded)return;
@@ -43,7 +54,7 @@ function bind(){
   root.querySelectorAll('[data-candidate]').forEach(b=>b.addEventListener('click',async()=>{b.disabled=true;b.textContent='正在收录';try{await rpc('CR_SAVE_CANDIDATE',{snippetId:state.data.snippet.id,index:Number(b.dataset.candidate)});b.textContent='已收录';announce('已收录这一个表达。');}catch(error){b.disabled=false;b.textContent='重试';state.error=error.message;}}));
 }
 function render({preserveScroll=false}={}){
-  if(!init)return;const focus=document.activeElement?.id,scroll=preserveScroll?root.querySelector('.card-content')?.scrollTop||0:0,data=state.data,task=state.task;let html='';
+  if(!init)return;if(interactionActive){pendingRender={preserveScroll};return;}const focus=document.activeElement?.id,scroll=preserveScroll?root.querySelector('.card-content')?.scrollTop||0:0,data=state.data,task=state.task;let html='';
   if(init.mode==='notice')html=header()+`<div class="card-content"><p>${e(init.message)}</p></div>`;
   else if(state.loading||state.checking){
     const entry=data?.entry||init.entry;
