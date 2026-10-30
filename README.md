@@ -99,6 +99,8 @@ CI 在 Windows 的 Node.js 22/24 上执行构建与自动测试，并在 Node.js
 
 ## 项目管理
 
+[工作看板](https://github.com/users/Foolish-Han/projects/1/views/2) 维护 Todo / In Progress / Done；已建立真实跨设备同步、公开安装与认证助手跨平台三项后续验收任务。
+
 - [路线图与验收条件](docs/roadmap.md)：已交付能力、待验证项和后续边界。
 - [Issues](https://github.com/Foolish-Han/ContextReader/issues)：用 Bug / 功能模板反馈，附复现步骤并移除凭据与私人原文。
 - [贡献指南](CONTRIBUTING.md)：分支、PR、测试与代码约定。

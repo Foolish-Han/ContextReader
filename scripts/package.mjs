@@ -1,4 +1,4 @@
-import {mkdir,cp,copyFile,writeFile,readFile,lstat,rm} from 'node:fs/promises';
+import {mkdir,cp,copyFile,writeFile,readFile,lstat,rm,readdir} from 'node:fs/promises';
 import {resolve,join,dirname,relative} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {execFileSync} from 'node:child_process';
@@ -13,6 +13,8 @@ const files=validatePublishedPaths(execFileSync('git',['ls-files','-z'],{cwd:roo
 execFileSync('git',['rev-parse','--verify','HEAD'],{cwd:root,stdio:'pipe'});
 if(execFileSync('git',['status','--porcelain=v1','--untracked-files=no'],{cwd:root,encoding:'utf8'}).trim())throw new Error('Commit tracked source changes before packaging');
 for(const file of files){const source=join(root,file);if((await lstat(source)).isSymbolicLink())throw new Error('Refusing a source symlink: '+file);if(/\.(?:mjs|js|ts|json|md|txt|ps1|cmd|yml|yaml|html|svg|css)$/.test(file))assertNoSecrets(file,await readFile(source,'utf8'));}
+async function scanGenerated(directory){for(const entry of await readdir(directory,{withFileTypes:true})){const path=join(directory,entry.name);if(entry.isSymbolicLink())throw new Error('Generated output must not contain a symlink');if(entry.isDirectory())await scanGenerated(path);else if(/\.(?:js|mjs|json|html|css|txt|svg)$/.test(entry.name)||entry.name.endsWith('LICENSE'))assertNoSecrets(relative(root,path),await readFile(path,'utf8'));}}
+await scanGenerated(join(root,'dist'));assertNoSecrets('auth/siwc-runtime.mjs',await readFile(join(root,'auth/siwc-runtime.mjs'),'utf8'));
 await mkdir(release,{recursive:true});const name='context-reader-'+version,folder=join(release,name);
 if(relative(release,folder)!==name)throw new Error('Invalid release target');
 try{if((await lstat(folder)).isSymbolicLink())throw new Error('Release must not be a symlink');await readFile(join(folder,'.context-reader-release'));await rm(folder,{recursive:true});}catch(error){if(error.code!=='ENOENT')throw error;}

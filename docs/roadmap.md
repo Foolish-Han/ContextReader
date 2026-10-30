@@ -14,15 +14,15 @@
 
 ## 下一阶段：试用验证
 
-### 真实跨设备同步
+### 真实跨设备同步 [#3](https://github.com/Foolish-Han/ContextReader/issues/3)
 
 用两个实际 Chrome 设备、同一个 Google 账号，验证新增、修改、删除、离线编辑和恢复。记录版本、账号授权步骤和可重复结果，不能用模拟服务代替此项。
 
-### 公开安装与 Google 受众
+### 公开安装与 Google 受众 [#4](https://github.com/Foolish-Han/ContextReader/issues/4)
 
 确认 OAuth Testing/Production、允许的扩展 ID 与其他账号可用性，整理发布者清单。评估 Chrome Web Store 所需材料、权限说明和 ID 迁移。当前没有上架声明。
 
-### 认证助手兼容性
+### 认证助手兼容性 [#5](https://github.com/Foolish-Han/ContextReader/issues/5)
 
 梳理 Windows 外的凭据保护与回调要求，决定 macOS/Linux 适配方案，再实现和验证。API Key 路径与订阅助手分别说明平台边界。
 
@@ -30,4 +30,4 @@
 
 不会因为存在知识库就自动加入知识图谱、向量检索、全页模型扫描、强制复习或新的商业账号体系。新需求先证明阅读阻塞、成本和实际收益。
 
-任务状态以 [GitHub Issues](https://github.com/Foolish-Han/ContextReader/issues) 为准。
+任务状态见[工作看板](https://github.com/users/Foolish-Han/projects/1/views/2)，问题和验收以 [GitHub Issues](https://github.com/Foolish-Han/ContextReader/issues) 为准。
