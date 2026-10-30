@@ -1,0 +1,37 @@
+{
+  "version": "0.7.0",
+  "realBrowser": true,
+  "realLlm": false,
+  "checks": [
+    "new pages on different sites mark known expressions without any enable action",
+    "selecting an unknown expression opens the reading control automatically",
+    "popup opt-out immediately removes marks and the open card on all tabs of that site",
+    "disabled sites stay inactive after refresh, selection and dynamic text changes",
+    "new pages on an opted-out site inherit the saved off state",
+    "saving model settings preserves site opt-outs",
+    "browser restart preserves the off state and the knowledge library",
+    "browser startup retires the legacy per-site opt-in registration",
+    "one click re-enables the site immediately; the old per-site permission checkbox is gone",
+    "re-enabled sites remain enabled after reload without duplicate content scripts",
+    "protected browser pages show an unavailable control",
+    "automatic activation, toggles and restoration make zero model requests"
+  ],
+  "modelRequests": 0,
+  "passed": true,
+  "popupFonts": {
+    "body": "\"Geist Variable\", \"Noto Sans SC Variable\", sans-serif",
+    "title": "\"Geist Variable\", \"Noto Sans SC Variable\", sans-serif",
+    "loaded": [
+      "Geist Variable",
+      "Noto Sans SC Variable",
+      "Noto Sans SC Variable",
+      "Noto Sans SC Variable",
+      "Noto Sans SC Variable",
+      "Noto Sans SC Variable",
+      "Noto Sans SC Variable",
+      "Noto Sans SC Variable",
+      "Noto Sans SC Variable",
+      "Noto Sans SC Variable"
+    ]
+  }
+}

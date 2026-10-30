@@ -1,0 +1,72 @@
+{
+  "version": "0.7.0",
+  "realBrowser": true,
+  "realGoogle": false,
+  "realLlm": false,
+  "checks": [
+    "canceled Google consent can retry successfully without retaining the previous error",
+    "a fresh second Chrome profile restores knowledge from Drive wire requests without another model call",
+    "regenerate bypasses the saved abnormal result, retains old data while waiting, and replaces the same context",
+    "British/American IPA, open learning sections, larger loaded fonts and the single-scroll frosted card render together",
+    "regenerated values and a second-device manual correction merge back across profiles",
+    "a Google outage keeps local edits pending and a successful retry confirms upload",
+    "disconnect and reconnect controls preserve knowledge and restore automatic synchronization",
+    "cloud controls, larger reading text and library layouts fit 320/390/768/1360px",
+    "deletion syncs without restoring stale data and all non-generation actions use zero additional model requests",
+    "missing application configuration reports a publisher error and never sends users to a tutorial",
+    "the Windows setup script updates only public OAuth configuration and preserves the extension identity"
+  ],
+  "screenshots": [
+    "reading-expanded.png",
+    "reading-compact.png",
+    "google-offline.png",
+    "google-connected.png",
+    "google-connected-dark.png",
+    "library-wide.png",
+    "library-narrow.png",
+    "settings-narrow.png",
+    "google-not-configured.png"
+  ],
+  "errors": [],
+  "typography": {
+    "word": "\"Literata Variable\", serif",
+    "wordSize": "44px",
+    "chinese": "\"Noto Serif SC Variable\", \"Noto Sans SC Variable\", serif",
+    "chineseSize": "20px",
+    "ipa": [
+      "英/ˈtæsɪtli/",
+      "美/ˈtæsɪtli/"
+    ],
+    "scrollable": [
+      "card-content"
+    ],
+    "fonts": [
+      "Geist Variable",
+      "Inter Variable",
+      "Inter Variable",
+      "Noto Sans SC Variable",
+      "Noto Sans SC Variable",
+      "Noto Sans SC Variable",
+      "Noto Sans SC Variable",
+      "Noto Sans SC Variable",
+      "Noto Sans SC Variable",
+      "Noto Sans SC Variable",
+      "Noto Sans SC Variable",
+      "Noto Sans SC Variable",
+      "Noto Sans SC Variable",
+      "Literata Variable",
+      "Noto Serif SC Variable",
+      "Noto Serif SC Variable",
+      "Noto Serif SC Variable",
+      "Noto Serif SC Variable",
+      "Noto Serif SC Variable",
+      "Noto Serif SC Variable",
+      "Noto Serif SC Variable",
+      "Noto Serif SC Variable",
+      "Noto Serif SC Variable"
+    ]
+  },
+  "modelRequests": 4,
+  "googleWireRequests": 42,
+  "passed": true
+}

@@ -1,0 +1,9 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import http from 'node:http';
+import {infer} from '../src/background/provider.mjs';
+const data={kind:'term',expression:{canonical:'hone',surface:'honed',kind:'word',ipa:'',partOfSpeech:'verb',baseMeanings:['磨练'],meaning:'磨练',note:'被动语态'},meaning:'能力可以磨练',explanation:'honed 对应 hone。',uncertainty:'',candidates:[]};
+const payload={kind:'term',selected:'honed',sentence:'Skills can be honed.',context:'Skills can be honed.',source:{url:'https://example.com',title:'Example'},entryId:''};
+test('OpenAI SDK Responses and compatible Chat Completions wire formats are exercised offline',async t=>{
+  const observed=[];const server=http.createServer(async(req,res)=>{let text='';for await(const chunk of req)text+=chunk;observed.push({path:req.url,body:JSON.parse(text),auth:req.headers.authorization});res.writeHead(200,{'Content-Type':'text/event-stream'});if(req.url.endsWith('/responses')){res.write('data: '+JSON.stringify({type:'response.output_text.delta',delta:JSON.stringify(data)})+'\n\n');res.write('data: '+JSON.stringify({type:'response.completed',response:{usage:{input_tokens:1,output_tokens:1}}})+'\n\n');}else res.write('data: '+JSON.stringify({choices:[{delta:{content:JSON.stringify(data)}}]})+'\n\n');res.end('data: [DONE]\n\n');});await new Promise(r=>server.listen(0,'127.0.0.1',r));t.after(()=>new Promise(r=>server.close(r)));const base={mode:'api',baseUrl:`http://127.0.0.1:${server.address().port}/v1`,model:'test-model'};for(const protocol of ['responses','chat'])assert.equal((await infer({...base,protocol},'offline-contract-key','quick',payload)).data.expression.canonical,'hone');assert.equal(observed[0].path,'/v1/responses');assert.equal(observed[0].body.text.format.type,'json_schema');assert.equal(observed[1].path,'/v1/chat/completions');assert.equal(observed[1].body.model,'test-model');assert.equal(observed[1].auth,'Bearer offline-contract-key');
+});

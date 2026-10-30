@@ -1,0 +1,107 @@
+{
+  "schemaVersion": 1,
+  "installedOn": "2026-10-27",
+  "repository": "https://github.com/phuryn/pm-skills",
+  "ref": "07b34f64ee828df08953f505b7f747aef85ae7c6",
+  "license": "MIT",
+  "licenseFile": ".agents/vendor/pm-skills-LICENSE",
+  "method": "skill-installer install-skill-from-github.py --method download --dest project/.agents/skills",
+  "verification": {
+    "status": "passed",
+    "gitBlobsMatched": 8,
+    "fileInventoryMatched": true,
+    "requiredFrontMatterChecked": true,
+    "relativeFileDependencies": 0,
+    "scope": "Source integrity and installation structure; does not validate product outcomes."
+  },
+  "skills": [
+    {
+      "sourcePath": "pm-product-discovery/skills/opportunity-solution-tree",
+      "destination": ".agents/skills/opportunity-solution-tree",
+      "files": [
+        {
+          "path": "SKILL.md",
+          "gitBlobSha": "d62668118be00de5626e08488673ec22e7f83491",
+          "sha256": "6b23e44a5ace86aa20d64cc130322265ace6a53a29831cc403b974098a379bcc"
+        }
+      ]
+    },
+    {
+      "sourcePath": "pm-product-discovery/skills/identify-assumptions-new",
+      "destination": ".agents/skills/identify-assumptions-new",
+      "files": [
+        {
+          "path": "SKILL.md",
+          "gitBlobSha": "3ddc8bc514b2a05cf5f0914635f144940797f5ac",
+          "sha256": "962b1e0c01e45ceb930e4d806c0ffb05e36cf25dcfef5497e7828d89d6ae474b"
+        }
+      ]
+    },
+    {
+      "sourcePath": "pm-product-discovery/skills/prioritize-assumptions",
+      "destination": ".agents/skills/prioritize-assumptions",
+      "files": [
+        {
+          "path": "SKILL.md",
+          "gitBlobSha": "bf7ed8a8ba9522cba14a7d5d0080fcfb69282e6b",
+          "sha256": "18160a0138c788790c9dd22995ffdcfac485c1f0599c170d8668678e59766073"
+        }
+      ]
+    },
+    {
+      "sourcePath": "pm-product-discovery/skills/brainstorm-experiments-new",
+      "destination": ".agents/skills/brainstorm-experiments-new",
+      "files": [
+        {
+          "path": "SKILL.md",
+          "gitBlobSha": "8c946a51839c85b7ffb666c268ca4b06513166ed",
+          "sha256": "fe66d9ba76cf6b0e156298c88f752d8e1e62549fe77a7c01c0a74d8679da9334"
+        }
+      ]
+    },
+    {
+      "sourcePath": "pm-execution/skills/create-prd",
+      "destination": ".agents/skills/create-prd",
+      "files": [
+        {
+          "path": "SKILL.md",
+          "gitBlobSha": "9aa4b7a5a19af2fe4ade43da564dd607efdf0488",
+          "sha256": "e3aa10a437ed7f748a957bd5d1eb06d8fa3f56dc728dcb93ce484387ecc3fa13"
+        }
+      ]
+    },
+    {
+      "sourcePath": "pm-execution/skills/pre-mortem",
+      "destination": ".agents/skills/pre-mortem",
+      "files": [
+        {
+          "path": "SKILL.md",
+          "gitBlobSha": "3a22d36b4dfac5685ccbc73486686ea6e7df6452",
+          "sha256": "4e5cf10a46ac1d1cdde6aa009ba2b860c532f55c0c3d9ec53a82082cad073052"
+        }
+      ]
+    },
+    {
+      "sourcePath": "pm-execution/skills/strategy-red-team",
+      "destination": ".agents/skills/strategy-red-team",
+      "files": [
+        {
+          "path": "SKILL.md",
+          "gitBlobSha": "fe7b7feaaa7a7662d72aac226d40d3abea7e0596",
+          "sha256": "3758fcf6f2f2653721c9d58586f7816e17d47d4723b54a5d3457a6641d2663fc"
+        }
+      ]
+    },
+    {
+      "sourcePath": "pm-execution/skills/test-scenarios",
+      "destination": ".agents/skills/test-scenarios",
+      "files": [
+        {
+          "path": "SKILL.md",
+          "gitBlobSha": "d5a25a7185d1681f97c1506d2ff1ccc083a7ce95",
+          "sha256": "2dc10ebb6359604275f26234d3c66c9ccc952e501ad5b685c23a5c0f34f634d4"
+        }
+      ]
+    }
+  ]
+}

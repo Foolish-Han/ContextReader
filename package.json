@@ -1,0 +1,61 @@
+{
+  "name": "context-reader",
+  "version": "0.7.1",
+  "private": true,
+  "type": "module",
+  "description": "A local-first contextual English reading extension for Chrome",
+  "scripts": {
+    "build": "node scripts/build-auth.mjs && node scripts/build.mjs",
+    "test": "node scripts/build-auth.mjs && node scripts/build-auth-tests.mjs && node --test test/*.test.mjs",
+    "test:e2e": "node test/oauth-live.mjs",
+    "test:live": "node test/oauth-live.mjs",
+    "test:auth": "node scripts/build-auth-tests.mjs && node --test vendor/siwc-local/test/*.test.mjs",
+    "package": "node scripts/package.mjs",
+    "test:review": "node test/review.mjs",
+    "test:smoke": "node test/ui-smoke.mjs",
+    "test:design": "node test/design.mjs",
+    "auth": "node auth/server.mjs",
+    "test:auto": "node test/auto-enable.mjs",
+    "test:async": "node test/async.mjs",
+    "test:cloud": "node test/cloud-browser.mjs",
+    "test:ui": "node test/ui-audit.mjs",
+    "verify:repo": "node scripts/verify-repository.mjs"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@fontsource-variable/geist": "5.3.0",
+    "@fontsource-variable/inter": "5.2.8",
+    "@fontsource-variable/literata": "5.3.0",
+    "@fontsource-variable/noto-sans-sc": "5.3.1",
+    "@fontsource-variable/noto-serif-sc": "5.3.1",
+    "@radix-ui/colors": "3.0.0",
+    "jose": "6.2.13",
+    "lucide": "1.62.0",
+    "openai": "7.45.0",
+    "proper-lockfile": "4.1.2"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2",
+    "jsdom": "29.1.1",
+    "playwright": "1.64.1"
+  },
+  "license": "MIT",
+  "author": "Foolish-Han",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Foolish-Han/ContextReader.git"
+  },
+  "homepage": "https://github.com/Foolish-Han/ContextReader#readme",
+  "bugs": {
+    "url": "https://github.com/Foolish-Han/ContextReader/issues"
+  },
+  "keywords": [
+    "chrome-extension",
+    "english-learning",
+    "contextual-reading",
+    "llm",
+    "google-drive"
+  ]
+}

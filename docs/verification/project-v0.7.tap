@@ -1,0 +1,418 @@
+TAP version 13
+# Subtest: a backup keeps occurrence positions, provider provenance and uncollected passage candidates
+ok 1 - a backup keeps occurrence positions, provider provenance and uncollected passage candidates
+  ---
+  duration_ms: 16.0804
+  type: 'test'
+  ...
+# Subtest: a disconnected task read reconnects once and only reads status
+ok 2 - a disconnected task read reconnects once and only reads status
+  ---
+  duration_ms: 89.2843
+  type: 'test'
+  ...
+# Subtest: a disconnected task mutation is never automatically repeated
+ok 3 - a disconnected task mutation is never automatically repeated
+  ---
+  duration_ms: 4.85
+  type: 'test'
+  ...
+# Subtest: two devices merge the same canonical word and distinct contexts without replacing local IDs
+ok 4 - two devices merge the same canonical word and distinct contexts without replacing local IDs
+  ---
+  duration_ms: 30.9233
+  type: 'test'
+  ...
+# Subtest: the same context from different device credential references merges once and retains both cache hashes
+ok 5 - the same context from different device credential references merges once and retains both cache hashes
+  ---
+  duration_ms: 7.1001
+  type: 'test'
+  ...
+# Subtest: manual meaning and independent learning updates survive simultaneous changes
+ok 6 - manual meaning and independent learning updates survive simultaneous changes
+  ---
+  duration_ms: 9.7506
+  type: 'test'
+  ...
+# Subtest: deletion wins over a stale offline learning update; explicit later re-add remains possible
+ok 7 - deletion wins over a stale offline learning update; explicit later re-add remains possible
+  ---
+  duration_ms: 12.327
+  type: 'test'
+  ...
+# Subtest: a deliberate re-add resets old manual fields so deleted incorrect definitions cannot return
+ok 8 - a deliberate re-add resets old manual fields so deleted incorrect definitions cannot return
+  ---
+  duration_ms: 8.4964
+  type: 'test'
+  ...
+# Subtest: deleting one context syncs without restoring it from another device or deleting another context
+ok 9 - deleting one context syncs without restoring it from another device or deleting another context
+  ---
+  duration_ms: 14.7147
+  type: 'test'
+  ...
+# Subtest: malformed cloud batches reject atomically and operational credentials are never exported
+ok 10 - malformed cloud batches reject atomically and operational credentials are never exported
+  ---
+  duration_ms: 4.1127
+  type: 'test'
+  ...
+# Subtest: knowledge mutations automatically upload, including edits and deletion, with no manual sync
+ok 11 - knowledge mutations automatically upload, including edits and deletion, with no manual sync
+  ---
+  duration_ms: 124.3263
+  type: 'test'
+  ...
+# Subtest: a fresh worker initializes saved authorization and uploads offline changes without connecting again
+ok 12 - a fresh worker initializes saved authorization and uploads offline changes without connecting again
+  ---
+  duration_ms: 14.7731
+  type: 'test'
+  ...
+# Subtest: disconnect stops automatic submission while retaining local knowledge
+ok 13 - disconnect stops automatic submission while retaining local knowledge
+  ---
+  duration_ms: 61.9111
+  type: 'test'
+  ...
+# Subtest: real sync coordinator restores a fresh device, propagates edits/deletions and isolates per-device writes
+ok 14 - real sync coordinator restores a fresh device, propagates edits/deletions and isolates per-device writes
+  ---
+  duration_ms: 7.6511
+  type: 'test'
+  ...
+# Subtest: simultaneous device additions remain in cloud and merge on a third device
+ok 15 - simultaneous device additions remain in cloud and merge on a third device
+  ---
+  duration_ms: 5.3314
+  type: 'test'
+  ...
+# Subtest: failed uploads do not acknowledge dirty local data or falsely report cloud success
+ok 16 - failed uploads do not acknowledge dirty local data or falsely report cloud success
+  ---
+  duration_ms: 2.8698
+  type: 'test'
+  ...
+# Subtest: an account change is blocked before reading or writing another account
+ok 17 - an account change is blocked before reading or writing another account
+  ---
+  duration_ms: 2.203
+  type: 'test'
+  ...
+# Subtest: a change during upload stays pending until another confirmed upload
+ok 18 - a change during upload stays pending until another confirmed upload
+  ---
+  duration_ms: 3.1474
+  type: 'test'
+  ...
+# Subtest: missing OAuth configuration never opens a login or accesses Google
+ok 19 - missing OAuth configuration never opens a login or accesses Google
+  ---
+  duration_ms: 0.3648
+  type: 'test'
+  ...
+# Subtest: Drive wire requests use only appDataFolder and keep OAuth tokens out of returned metadata
+ok 20 - Drive wire requests use only appDataFolder and keep OAuth tokens out of returned metadata
+  ---
+  duration_ms: 5.2448
+  type: 'test'
+  ...
+# Subtest: word boundaries, hyphens and longest phrase prevent misleading marks
+ok 21 - word boundaries, hyphens and longest phrase prevent misleading marks
+  ---
+  duration_ms: 2.2513
+  type: 'test'
+  ...
+# Subtest: confirmed aliases and whitespace work; unknown inflections do not get guessed
+ok 22 - confirmed aliases and whitespace work; unknown inflections do not get guessed
+  ---
+  duration_ms: 0.2627
+  type: 'test'
+  ...
+# Subtest: paused entries are retained but excluded from page matches
+ok 23 - paused entries are retained but excluded from page matches
+  ---
+  duration_ms: 0.1393
+  type: 'test'
+  ...
+# Subtest: context identity changes with meaning context, source or provider
+ok 24 - context identity changes with meaning context, source or provider
+  ---
+  duration_ms: 7.3118
+  type: 'test'
+  ...
+# Subtest: two identical words in the same paragraph have separate occurrence identities
+ok 25 - two identical words in the same paragraph have separate occurrence identities
+  ---
+  duration_ms: 1.1887
+  type: 'test'
+  ...
+# Subtest: inputs are bounded and source URLs never keep credentials
+ok 26 - inputs are bounded and source URLs never keep credentials
+  ---
+  duration_ms: 1.4424
+  type: 'test'
+  ...
+# Subtest: two contexts share one entry; repeat lookup does not create another record
+ok 27 - two contexts share one entry; repeat lookup does not create another record
+  ---
+  duration_ms: 7.131
+  type: 'test'
+  ...
+# Subtest: concurrent saves are serialized without losing history
+ok 28 - concurrent saves are serialized without losing history
+  ---
+  duration_ms: 30.4476
+  type: 'test'
+  ...
+# Subtest: user correction survives later contextual explanations and exports contain no settings
+ok 29 - user correction survives later contextual explanations and exports contain no settings
+  ---
+  duration_ms: 4.9937
+  type: 'test'
+  ...
+# Subtest: failed storage does not claim success or pollute the cached library
+ok 30 - failed storage does not claim success or pollute the cached library
+  ---
+  duration_ms: 1.5497
+  type: 'test'
+  ...
+# Subtest: backup merge is idempotent and rejects unsupported input without modifying data
+ok 31 - backup merge is idempotent and rejects unsupported input without modifying data
+  ---
+  duration_ms: 3.1297
+  type: 'test'
+  ...
+# Subtest: deleting one occurrence keeps the other; deleting an entry removes its occurrences
+ok 32 - deleting one occurrence keeps the other; deleting an entry removes its occurrences
+  ---
+  duration_ms: 4.2814
+  type: 'test'
+  ...
+# Subtest: model validation refuses malformed results and unverified etymology
+ok 33 - model validation refuses malformed results and unverified etymology
+  ---
+  duration_ms: 0.7872
+  type: 'test'
+  ...
+# Subtest: authentication helper isolates credentials by origin and refuses inference payloads
+ok 34 - authentication helper isolates credentials by origin and refuses inference payloads
+  ---
+  duration_ms: 49.9587
+  type: 'test'
+  ...
+# Subtest: privileged broker binds tokens to the expected registered profile and enforces plan scope
+ok 35 - privileged broker binds tokens to the expected registered profile and enforces plan scope
+  ---
+  duration_ms: 37.1397
+  type: 'test'
+  ...
+# Subtest: new dynamic OAuth registration includes host, PKCE and nonce and rejects stray callback state
+ok 36 - new dynamic OAuth registration includes host, PKCE and nonce and rejects stray callback state
+  ---
+  duration_ms: 35.8077
+  type: 'test'
+  ...
+# Subtest: OAuth inference goes directly to the public Responses route and never uses a configured API key
+ok 37 - OAuth inference goes directly to the public Responses route and never uses a configured API key
+  ---
+  duration_ms: 8.2746
+  type: 'test'
+  ...
+# Subtest: OAuth model discovery uses the account token and filters hidden models
+ok 38 - OAuth model discovery uses the account token and filters hidden models
+  ---
+  duration_ms: 0.5206
+  type: 'test'
+  ...
+# Subtest: learning JSON mode declares JSON in the user input and validates the completed card locally
+ok 39 - learning JSON mode declares JSON in the user input and validates the completed card locally
+  ---
+  duration_ms: 1.6379
+  type: 'test'
+  ...
+# Subtest: OAuth never accepts a valid-looking JSON body from an interrupted stream
+ok 40 - OAuth never accepts a valid-looking JSON body from an interrupted stream
+  ---
+  duration_ms: 1.293
+  type: 'test'
+  ...
+# Subtest: Windows uses actual current-user DPAPI for credential round trips
+ok 41 - Windows uses actual current-user DPAPI for credential round trips
+  ---
+  duration_ms: 484.7155
+  type: 'test'
+  ...
+# Subtest: learning disclosures default open while remaining user-collapsible
+ok 42 - learning disclosures default open while remaining user-collapsible
+  ---
+  duration_ms: 75.8182
+  type: 'test'
+  ...
+# Subtest: British and American IPA are separate; legacy IPA never gets silently relabeled
+ok 43 - British and American IPA are separate; legacy IPA never gets silently relabeled
+  ---
+  duration_ms: 16.3048
+  type: 'test'
+  ...
+# Subtest: OpenAI SDK Responses and compatible Chat Completions wire formats are exercised offline
+ok 44 - OpenAI SDK Responses and compatible Chat Completions wire formats are exercised offline
+  ---
+  duration_ms: 47.9111
+  type: 'test'
+  ...
+# Subtest: release packaging rejects missing or stale application OAuth configuration
+ok 45 - release packaging rejects missing or stale application OAuth configuration
+  ---
+  duration_ms: 1.5762
+  type: 'test'
+  ...
+# Subtest: publisher configuration updates the actual loaded copy with a different installation path
+ok 46 - publisher configuration updates the actual loaded copy with a different installation path
+  ---
+  duration_ms: 440.9566
+  type: 'test'
+  ...
+# Subtest: publisher discovery cannot modify another extension or a packaged Web Store install
+ok 47 - publisher discovery cannot modify another extension or a packaged Web Store install
+  ---
+  duration_ms: 736.4308
+  type: 'test'
+  ...
+# Subtest: every ordinary web origin starts enabled; browser pages remain unsupported
+ok 48 - every ordinary web origin starts enabled; browser pages remain unsupported
+  ---
+  duration_ms: 1.7621
+  type: 'test'
+  ...
+# Subtest: a site opt-out persists, updates its open tabs and cannot change model settings
+ok 49 - a site opt-out persists, updates its open tabs and cannot change model settings
+  ---
+  duration_ms: 4.8929
+  type: 'test'
+  ...
+# Subtest: simultaneous opt-outs do not overwrite one another; old allowlist registrations are retired
+ok 50 - simultaneous opt-outs do not overwrite one another; old allowlist registrations are retired
+  ---
+  duration_ms: 2.9347
+  type: 'test'
+  ...
+# Subtest: durable receipt, concurrent submissions and cross-tab equivalent dedup use one identity
+ok 51 - durable receipt, concurrent submissions and cross-tab equivalent dedup use one identity
+  ---
+  duration_ms: 26.5298
+  type: 'test'
+  ...
+# Subtest: two slots, fast explanations first and at most one learning request
+ok 52 - two slots, fast explanations first and at most one learning request
+  ---
+  duration_ms: 47.4205
+  type: 'test'
+  ...
+# Subtest: different contexts remain separate and canonical learning is shared once
+ok 53 - different contexts remain separate and canonical learning is shared once
+  ---
+  duration_ms: 23.8763
+  type: 'test'
+  ...
+# Subtest: failed task acceptance never starts a model request
+ok 54 - failed task acceptance never starts a model request
+  ---
+  duration_ms: 1.4207
+  type: 'test'
+  ...
+# Subtest: recovery storage failures keep existing knowledge and task reads available without dispatch
+ok 55 - recovery storage failures keep existing knowledge and task reads available without dispatch
+  ---
+  duration_ms: 14.2374
+  type: 'test'
+  ...
+# Subtest: cancel queued or running prevents dispatch or a late result from reviving knowledge
+ok 56 - cancel queued or running prevents dispatch or a late result from reviving knowledge
+  ---
+  duration_ms: 14.9543
+  type: 'test'
+  ...
+# Subtest: worker recovery resumes unsent work and never automatically repeats unconfirmed requests
+ok 57 - worker recovery resumes unsent work and never automatically repeats unconfirmed requests
+  ---
+  duration_ms: 14.5568
+  type: 'test'
+  ...
+# Subtest: boundary suggestion persists and both original and expanded requests reuse its result
+ok 58 - boundary suggestion persists and both original and expanded requests reuse its result
+  ---
+  duration_ms: 34.6276
+  type: 'test'
+  ...
+# Subtest: save failure keeps generated output for saving again without a second inference
+ok 59 - save failure keeps generated output for saving again without a second inference
+  ---
+  duration_ms: 28.4875
+  type: 'test'
+  ...
+# Subtest: learning failure keeps quick result and retry executes learning only
+ok 60 - learning failure keeps quick result and retry executes learning only
+  ---
+  duration_ms: 44.2218
+  type: 'test'
+  ...
+# Subtest: explicit regeneration bypasses cache, replaces the same context and refreshes learning once
+ok 61 - explicit regeneration bypasses cache, replaces the same context and refreshes learning once
+  ---
+  duration_ms: 50.8777
+  type: 'test'
+  ...
+# Subtest: failed regeneration preserves old content, and successful regeneration preserves manual edits
+ok 62 - failed regeneration preserves old content, and successful regeneration preserves manual edits
+  ---
+  duration_ms: 88.9481
+  type: 'test'
+  ...
+# Subtest: rate limiting pauses the remaining connection without draining queued requests
+ok 63 - rate limiting pauses the remaining connection without draining queued requests
+  ---
+  duration_ms: 13.5316
+  type: 'test'
+  ...
+# Subtest: retrying cancellation waits for its old attempt to stop and never loses a concurrency slot
+ok 64 - retrying cancellation waits for its old attempt to stop and never loses a concurrency slot
+  ---
+  duration_ms: 60.2714
+  type: 'test'
+  ...
+# Subtest: deleting a saved context invalidates its task and permits an explicit fresh attempt
+ok 65 - deleting a saved context invalidates its task and permits an explicit fresh attempt
+  ---
+  duration_ms: 30.6293
+  type: 'test'
+  ...
+# Subtest: a changed model keeps task model; replaced credentials block old work and discard late output
+ok 66 - a changed model keeps task model; replaced credentials block old work and discard late output
+  ---
+  duration_ms: 30.7002
+  type: 'test'
+  ...
+# Subtest: deletion blocks resurrection; later contextual results preserve human edits
+ok 67 - deletion blocks resurrection; later contextual results preserve human edits
+  ---
+  duration_ms: 60.6764
+  type: 'test'
+  ...
+# Subtest: occurrence anchoring handles inline whitespace, distinguishes repeats and rejects changed text
+ok 68 - occurrence anchoring handles inline whitespace, distinguishes repeats and rejects changed text
+  ---
+  duration_ms: 0.7919
+  type: 'test'
+  ...
+1..68
+# tests 68
+# suites 0
+# pass 68
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1340.4112

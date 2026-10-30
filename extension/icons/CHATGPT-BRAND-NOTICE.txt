@@ -1,0 +1,2 @@
+OpenAI ChatGPT mark from the official Sign-in with ChatGPT DevKit. Source: https://raw.githubusercontent.com/openai/sign-in-with-chatgpt-devkit/0a36fefeb913055c8c7a1a29b63d82b96b2e841a/assets/brand/chatgpt-button-white-21.svg
+OpenAI trademarks remain subject to https://openai.com/brand/ . No claim of partnership or endorsement.

@@ -1,0 +1,28 @@
+name: 功能建议
+description: 从具体阅读问题提出改进
+labels: [enhancement, "status: triage"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: 要解决什么阅读问题
+      description: 请描述发生场景和现有做法。
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: 建议的行为
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: 如何判断改善有效
+      description: 可观察的完成条件、替代做法与边界。
+  - type: checkboxes
+    attributes:
+      label: 隐私
+      options:
+        - label: 我没有上传私人文章、知识库、凭据或他人的个人信息。
+          required: true

@@ -1,0 +1,138 @@
+{
+  "version": "0.7.0",
+  "realBrowser": true,
+  "realGoogle": false,
+  "realLlm": false,
+  "checks": [
+    "settings appearance choices and system color-scheme changes apply immediately",
+    "API settings, protocol changes, saved key and model-list connection check operate through actual controls",
+    "two explanations submit asynchronously through separate selection cards while reading continues",
+    "reading disclosures, keyboard tabs, original quotes, both themes, 320px and short viewports preserve one scroll area",
+    "library search, history, revision and round-trip backup use real UI without duplicate data or credential export",
+    "pause/resume marking and both cancel/confirm deletion paths work",
+    "ChatGPT connected account, model loading and API mode switching render without a real login or model request",
+    "long passage explanation, original disclosure and saved snippet detail render together",
+    "incomplete phrase confirmation remains an explicit choice before collection",
+    "failed generation, attention filter, task retry and completed/active filters are interactive",
+    "settings and library in dark mode fit 320/390/768/1024/1440px, including mobile list/detail navigation",
+    "toolbar popup toggles website activation and appearance through its actual controls",
+    "removing the API key updates stored state and the visible field immediately",
+    "keyboard focus, reduced motion, four-size typography and absence of real service calls are verified"
+  ],
+  "screenshots": [
+    "settings-oauth-light.png",
+    "settings-oauth-dark.png",
+    "settings-api-light.png",
+    "reading-selection.png",
+    "reading-running.png",
+    "reading-compact-light.png",
+    "reading-expanded-light.png",
+    "reading-history-light.png",
+    "reading-expanded-bottom.png",
+    "reading-expanded-dark.png",
+    "reading-short-dark.png",
+    "library-history-light.png",
+    "library-light.png",
+    "library-search-empty.png",
+    "library-import-dialog.png",
+    "settings-connected-light.png",
+    "reading-passage.png",
+    "library-passage.png",
+    "reading-boundary.png",
+    "reading-failed.png",
+    "library-task-failed.png",
+    "library-dark.png",
+    "settings-api-dark.png",
+    "library-mobile-dark.png",
+    "settings-mobile-dark.png",
+    "library-list-mobile-dark.png",
+    "toolbar-popup.png",
+    "toolbar-popup-light.png"
+  ],
+  "errors": [],
+  "metrics": [
+    {
+      "surface": "reading",
+      "width": 296,
+      "scroll": 296,
+      "height": 362,
+      "doc": 362,
+      "scrollers": [
+        "card-content"
+      ],
+      "sizes": [
+        "16px",
+        "14px",
+        "44px",
+        "20px"
+      ]
+    },
+    {
+      "surface": "reading",
+      "width": 366,
+      "scroll": 366,
+      "height": 820,
+      "doc": 820,
+      "scrollers": [
+        "card-content"
+      ],
+      "sizes": [
+        "16px",
+        "14px",
+        "44px",
+        "20px"
+      ]
+    },
+    {
+      "surface": "reading",
+      "width": 478,
+      "scroll": 478,
+      "height": 820,
+      "doc": 820,
+      "scrollers": [
+        "card-content"
+      ],
+      "sizes": [
+        "16px",
+        "14px",
+        "44px",
+        "20px"
+      ]
+    },
+    {
+      "surface": "reading",
+      "width": 478,
+      "scroll": 478,
+      "height": 820,
+      "doc": 820,
+      "scrollers": [
+        "card-content"
+      ],
+      "sizes": [
+        "16px",
+        "14px",
+        "44px",
+        "20px"
+      ]
+    },
+    {
+      "surface": "library",
+      "sizes": [
+        "16px",
+        "20px",
+        "14px",
+        "44px"
+      ]
+    },
+    {
+      "surface": "settings",
+      "sizes": [
+        "16px",
+        "20px",
+        "14px"
+      ]
+    }
+  ],
+  "modelFixtureCalls": 9,
+  "passed": true
+}

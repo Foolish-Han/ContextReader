@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 安全漏洞
+    url: https://github.com/Foolish-Han/ContextReader/security/advisories/new
+    about: 请通过私有漏洞报告提交，不在公开 Issue 发布敏感信息。
+  - name: 使用与排错
+    url: https://github.com/Foolish-Han/ContextReader/blob/main/docs/troubleshooting.md
+    about: 安装、模型连接、任务与 Google 同步。

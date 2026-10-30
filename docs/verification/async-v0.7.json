@@ -1,0 +1,32 @@
+{
+  "version": "0.7.0",
+  "realBrowser": true,
+  "realLlm": false,
+  "checks": [
+    "A/B generate concurrently, C queues, and all receipts arrive before any result",
+    "reselecting and a second tab reconnect to the same task with no submit button or duplicate inference",
+    "only submitted occurrences show dotted marks; A finishing updates its mark while B keeps its card",
+    "all article and extension pages close while tasks finish and save; total concurrency stays 2 and learning stays 1",
+    "returning to the article restores saved marks; task list reflows at 320/390/768/1360px",
+    "changed text is not marked; boundary confirmation survives a browser restart and reuses generated output",
+    "forced service-worker termination preserves queued work and never silently replays requests with unknown outcomes",
+    "missing credentials pause before inference; restoring the same key reference permits explicit retry"
+  ],
+  "screenshots": [
+    "tasks-running-wide.png",
+    "reading-pending.png",
+    "tasks-completed-wide.png",
+    "tasks-narrow.png"
+  ],
+  "errors": [],
+  "receiptsMs": [
+    124,
+    56,
+    54,
+    90
+  ],
+  "peakRequests": 2,
+  "peakLearningRequests": 1,
+  "modelRequests": 14,
+  "passed": true
+}

@@ -1,0 +1,23 @@
+# 安全政策
+
+## 报告漏洞
+
+请使用仓库的 [Private vulnerability reporting](https://github.com/Foolish-Han/ContextReader/security/advisories/new)。如该入口不可用，请先发一个不含细节的 Issue 请求私下联系，不在公开 Issue 中发布可利用步骤或凭据。
+
+附上受影响版本、运行环境、最小复现和影响范围。密钥、OAuth 凭据、Cookie、授权码、真实知识库和私人原文都应移除。项目由个人维护，不承诺固定响应时限。
+
+## 支持范围
+
+优先修复最新发行版及 `main` 上确认的安全问题。旧版请先升级并复核，不把本机浏览器、Google 或模型服务的权限绕过作为功能。
+
+## 关键边界
+
+- 解释需要读取明确选区及有限上下文；模型调用由用户动作触发。
+- 内容脚本不能读取受保护的扩展密钥存储。凭据不进入 DOM、知识库导出或 Drive 快照。
+- ChatGPT refresh/ID token 留在 Windows DPAPI 保护的助手中，短期 access token 仅进入后台内存。
+- 认证助手只监听本机回环地址，核对扩展 Origin，不提供推理转发接口。
+- Google 仅请求 `drive.appdata`；切换账号不允许静默把旧账号资料上传到新账号。
+- 自动重试不能把已发出但结果未确认的任务当作未发送请求重放。
+- 公开 Client ID 和扩展公钥需要随应用分发；它们不代替用户授权。
+
+更多见 [数据与权限](docs/privacy.md)。

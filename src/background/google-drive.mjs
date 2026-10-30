@@ -1,0 +1,29 @@
+import {errorText} from '../shared/core.mjs';
+export const DRIVE_SCOPE='https://www.googleapis.com/auth/drive.appdata';
+export const CLOUD_LIMIT=25*1024*1024;
+const API='https://www.googleapis.com/drive/v3',UPLOAD='https://www.googleapis.com/upload/drive/v3/files';
+const fail=(message,code)=>Object.assign(new Error(message),{code});
+export function createGoogleDrive({identity,clientId,fetcher=(...args)=>globalThis.fetch(...args)}={}){
+ let token='';const configured=/^\d+-[\w-]+\.apps\.googleusercontent\.com$/.test(clientId||'');
+ async function authorize(interactive=false){if(!configured)throw fail('此安装包缺少应用的 Google OAuth Client ID，请更新扩展或联系应用发布者；普通用户无需自行注册。','configuration');try{const result=await identity.getAuthToken({interactive,enableGranularPermissions:true,scopes:[DRIVE_SCOPE]});token=typeof result==='string'?result:result?.token;if(!token||Array.isArray(result?.grantedScopes)&&!result.grantedScopes.includes(DRIVE_SCOPE))throw new Error('未取得 Google Drive 应用数据权限。');return true;}catch(error){token='';const detail=errorText(error).replace(/([?&](?:code|state|access_token|id_token|refresh_token)=)[^&\s]+/gi,'$1[已隐藏]');throw fail(interactive?'Google 登录或授权未完成。'+(detail?'Google 返回：'+detail:'请重试。'):'Google 授权需要恢复，请点击“连接 Google Drive”。','auth');}}
+ async function request(url,{signal,raw=false,retry=true,...options}={}){
+  if(!token)await authorize(false);let response;try{response=await fetcher(url,{...options,headers:{...options.headers,Authorization:'Bearer '+token},signal:signal?AbortSignal.any([signal,AbortSignal.timeout(65000)]):AbortSignal.timeout(65000),redirect:'error'});}catch(error){if(signal?.aborted)throw fail('同步已停止。','canceled');throw fail('Google Drive 暂时无法连接，资料仍保存在本机，稍后自动重试。','network');}
+  if(response.status===401&&retry){await identity.removeCachedAuthToken({token});token='';await authorize(false);return request(url,{...options,signal,raw,retry:false});}
+  if(!response.ok){if(response.status===401)throw fail('Google 授权已失效，请重新连接。','auth');if(response.status===429||response.status===503)throw fail('Google Drive 暂时限流，稍后会重试。','rate-limit');if(response.status===403)throw fail('Google Drive 拒绝访问。请确认 Drive API 已启用、应用数据权限已授权，且云端空间可用。','auth');throw fail('Google Drive 请求失败（HTTP '+response.status+'），本机资料保持不变。',response.status===404?'not-found':'service');}
+  if(raw)return response;if(Number(response.headers.get('content-length'))>CLOUD_LIMIT)throw fail('云端文件超过 25 MB，未合并或覆盖本机资料。','size');const body=await response.text();if(new TextEncoder().encode(body).length>CLOUD_LIMIT)throw fail('云端文件超过 25 MB，未合并或覆盖本机资料。','size');try{return JSON.parse(body);}catch{throw fail('Google Drive 返回了无效数据。','format');}
+ }
+ const parameters=(url,params)=>{const u=new URL(url);for(const [name,value] of Object.entries(params))u.searchParams.set(name,value);return u.href;};
+ const validId=id=>{if(!/^[\w-]{5,160}$/.test(id||''))throw fail('云端文件编号无效。','format');return encodeURIComponent(id);};
+ async function account(signal){const data=await request(parameters(API+'/about',{fields:'user(permissionId,displayName,emailAddress)'}),{signal});if(!data.user?.permissionId)throw fail('没有取得 Google 账号身份，未开始同步。','auth');return {id:String(data.user.permissionId),name:String(data.user.displayName||'Google 账号').slice(0,120),email:String(data.user.emailAddress||'').slice(0,240)};}
+ async function files(signal){const all=[];let pageToken='';do{const data=await request(parameters(API+'/files',{spaces:'appDataFolder',q:"trashed = false and appProperties has { key='app' and value='context-reader-sync-v1' }",pageSize:'100',fields:'nextPageToken,files(id,name,size,modifiedTime,appProperties)',...(pageToken?{pageToken}:{})}),{signal});if(!Array.isArray(data.files))throw fail('云端文件列表不完整。','format');all.push(...data.files);if(all.length>200)throw fail('云端设备文件超过 200 个，请先整理后再同步。','size');pageToken=data.nextPageToken||'';}while(pageToken);return all;}
+ async function read(file,signal){if(Number(file.size)>CLOUD_LIMIT)throw fail('云端文件超过 25 MB。','size');return request(parameters(API+'/files/'+validId(file.id),{alt:'media'}),{signal});}
+ async function write(envelope,id='',signal){const body=JSON.stringify(envelope),bytes=new TextEncoder().encode(body).length;if(bytes>CLOUD_LIMIT)throw fail('知识同步文件超过 25 MB，已有云端版本与本机资料均保留。','size');
+  const metadata={name:'context-reader-'+envelope.device+'.json',mimeType:'application/json',appProperties:{app:'context-reader-sync-v1',device:envelope.device},...(!id?{parents:['appDataFolder']}:{})},fields='id,name,size,modifiedTime,appProperties';
+  if(bytes>5*1024*1024){const start=await request(parameters(UPLOAD+(id?'/'+validId(id):''),{uploadType:'resumable',fields}),{method:id?'PATCH':'POST',headers:{'Content-Type':'application/json; charset=UTF-8','X-Upload-Content-Type':'application/json','X-Upload-Content-Length':String(bytes)},body:JSON.stringify(metadata),signal,raw:true});const location=start.headers.get('location');if(!location?.startsWith(UPLOAD))throw fail('Google 返回了无效上传会话。','format');return request(location,{method:'PUT',headers:{'Content-Type':'application/json'},body,signal});}
+  if(id)return request(parameters(UPLOAD+'/'+validId(id),{uploadType:'media',fields}),{method:'PATCH',headers:{'Content-Type':'application/json; charset=UTF-8'},body,signal});
+  const boundary='cr_'+crypto.randomUUID().replaceAll('-',''),multipart=`--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${body}\r\n--${boundary}--`;
+  return request(parameters(UPLOAD,{uploadType:'multipart',fields}),{method:'POST',headers:{'Content-Type':'multipart/related; boundary='+boundary},body:multipart,signal});
+ }
+ async function disconnect(){token='';await identity.clearAllCachedAuthTokens?.();}
+ return {configured,authorize,account,files,read,write,disconnect};
+}
