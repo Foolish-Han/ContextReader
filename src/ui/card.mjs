@@ -5,7 +5,7 @@ import {taskLabel,taskActions,liveStates} from './tasks.mjs';
 import {icon} from './icons.mjs';
 import './appearance.mjs';
 const root=document.querySelector('#card-root'),nonce=location.hash.slice(1);
-let init,state={expanded:false,tab:'usage',loading:false,checking:true,error:'',data:null,task:null},busy=false,lastHeight=0,lastExpanded=false,readRevision=0;
+let init,state={expanded:false,tab:'usage',loading:false,checking:true,error:'',data:null,task:null},busy=false,lastHeight=0,lastExpanded=false,readRevision=0,lastMarkup='';
 const parentMessage=(type,payload={})=>parent.postMessage({type,nonce,...payload},'*');
 new ResizeObserver(()=>{
   const height=Math.ceil(document.body.getBoundingClientRect().height);
@@ -68,7 +68,7 @@ function render({preserveScroll=false}={}){
   }else{
     const r=init.request;html=header('所选内容')+`<div class="card-content selection-content"><div class="selection-preview" lang="en">${e(r.selected)}</div><div class="action-row"><button type="button" class="button primary" id="run">${r.kind==='passage'?'速解所选':'解释并收录'}</button>${r.kind==='term'?'<button type="button" class="text-button" id="sentence">理解整句</button>':''}</div></div>`;
   }
-  root.className='reading-card'+(state.expanded?' is-expanded':'');root.innerHTML=html;bind();if(preserveScroll){root.querySelector('.card-content')?.scrollTo(0,scroll);if(focus)root.querySelector('#'+CSS.escape(focus))?.focus({preventScroll:true});}
+  root.className='reading-card'+(state.expanded?' is-expanded':'');if(html!==lastMarkup){lastMarkup=html;root.innerHTML=html;bind();}if(preserveScroll){root.querySelector('.card-content')?.scrollTo(0,scroll);if(focus)root.querySelector('#'+CSS.escape(focus))?.focus({preventScroll:true});}
 }
 async function run(kind){
   if(busy)return;busy=true;state.error='';state.loading=true;parentMessage('cr-pin');render();let request={...init.request};

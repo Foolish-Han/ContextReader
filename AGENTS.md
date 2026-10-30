@@ -27,6 +27,7 @@
 - The article card has exactly one body scroll area. Keep header dismissal visible, preserve expanded cards on resize and preserve drafts/focus/scroll on background updates.
 - Keep learning details initially open. Show British/American IPA separately; never relabel one old IPA as both accents.
 - Respect reduced motion/transparency, support keyboard focus/tabs and avoid theme-transition contrast flashes.
+- Skip DOM replacement for unchanged reading markup: background notifications must not detach a pressed submit button or reset manually collapsed details.
 - No decorative gradients, repeated marketing copy, or middle-dot separators.
 
 ## Delivery
