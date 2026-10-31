@@ -25,6 +25,7 @@ npm run verify:repo
 ```sh
 npx playwright install chromium
 npm run test:ui
+npm run test:marks
 npm run test:cloud
 npm run test:async
 npm run test:auto
@@ -33,7 +34,7 @@ npm run test:oauth
 
 各套件在 `test-results` 创建自己的 Chrome 资料和模拟服务，不复用日常 Chrome，不需要真人密钥、Google 登录或 ChatGPT 额度。请保持此隔离。
 
-`test:ui` 检查主要模块、主题、键盘、修订、备份、失败状态和窄屏；`test:cloud` 验证模拟 Drive 的线请求、合并、删除和重新生成；`test:async` 覆盖并发/排队、关闭页面及后台重启；`test:auto` 覆盖站点默认启用与停用恢复。`test:oauth` 验证无回环服务时的真实 Chrome 回调接收、完整浏览器退出后恢复登录、过期刷新、账号/模型显示、退出及取消，OAuth/JWKS 使用合成服务。
+`test:marks` 检查连字符内部表达、多个 article、动态信息流、节点复用、正文链接、CSS 可见性变化、句段定位/重叠/跨段/缓存、确认/取消/左右补全、未知读音和词条一致性，以及标记的浅深/窄屏对比度。`test:ui` 检查主要模块、主题、键盘、修订、备份、失败状态和窄屏；`test:cloud` 验证模拟 Drive 的线请求、合并、删除和重新生成；`test:async` 覆盖并发/排队、关闭页面及后台重启；`test:auto` 覆盖站点默认启用与停用恢复。`test:oauth` 验证无回环服务时的真实 Chrome 回调接收、完整浏览器退出后恢复登录、扩展重新加载与版本升级后复用账号、过期刷新、账号/模型显示、退出及取消，OAuth/JWKS 使用合成服务。
 
 `test:live`、`test:e2e` 等真人服务脚本不在 CI 中运行。必须由本人明确进行登录和授权，不能为了复测撤销或重新索取已有授权。
 

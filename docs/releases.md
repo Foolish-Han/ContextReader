@@ -18,6 +18,7 @@
    npm run test:auth
    npm run verify:repo
    npm run test:ui
+   npm run test:marks
    npm run test:cloud
    npm run test:async
    npm run test:auto

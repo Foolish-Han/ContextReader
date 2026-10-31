@@ -50,6 +50,8 @@ async function commitCandidate(result,request,hash,provider){
 export async function dispatch(type,payload,sender,progress=()=>{}){
   await initialize;
   if(type==='CR_GET_INDEX')return repository.index();
+  if(type==='CR_PAGE_PASSAGES')return repository.passageIndex(safeUrl(sender.url));
+  if(type==='CR_GET_PASSAGE')return repository.getSnippet(payload.id);
   if(type==='CR_GET_ENTRY'){const req=payload.request?sanitizeRequest(payload.request):null;return repository.get(payload.id,req?await requestHash(req):'',req);}
   if(type==='CR_PAGE_TASKS')return tasks.pageTasks(safeUrl(sender.url));
   if(type==='CR_TASK_ANCHORS')return tasks.observeAnchors(safeUrl(sender.url),payload.found);

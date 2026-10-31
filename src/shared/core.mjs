@@ -25,6 +25,7 @@ export function surroundings(context,surface,hint=''){const text=norm(context),n
 export function errorText(error) { return String(error?.message || error || '请求未完成。').replace(/(?:sk-[\w-]{8,}|Bearer\s+\S+|eyJ[\w-]+\.[\w-]+\.[\w-]+)/gi, '[已隐藏]').slice(0, 500); }
 export function sourceLabel(source) { try { return new URL(source.url).hostname.replace(/^www\./, ''); } catch { return source.title || '原文'; } }
 export function emptyLibrary() { return { version: VERSION, entries: [], contexts: [], snippets: [] }; }
+export function expressionKind(expression){const canonical=norm(expression.canonical);return expression.kind==='word'&&/[\p{L}\p{N}][\-\u2010-\u2015][\p{L}\p{N}]/u.test(canonical)?'compound':expression.kind;}
 
 // Reattach only an unambiguous occurrence in an unchanged context. Never mark
 // every spelling of a submitted word or guess a new position after text edits.
@@ -37,18 +38,23 @@ export function locateOccurrence(text,request){
  const hits=[];let at=-1;while((at=normalized.toLowerCase().indexOf(needle.toLowerCase(),at+1))>=0){const before=norm(normalized.slice(0,at)).slice(-400),after=norm(normalized.slice(at+needle.length)).slice(0,400);if(before===norm(request.before)&&after===norm(request.after))hits.push({start:offsets[at],end:offsets[at+needle.length-1]+1});}
  return hits.length===1?hits[0]:null;
 }
+// A boundary suggestion must contain the submitted occurrence, including when
+// it expands to the left. A matching phrase elsewhere is not evidence.
+export function expandSelection(request,surface){const context=norm(request.context),selected=norm(surface),original=locateOccurrence(context,request);if(!selected||!original)return null;const positions=[];let at=-1;while((at=context.toLowerCase().indexOf(selected.toLowerCase(),at+1))>=0)if(at<=original.start&&at+selected.length>=original.end)positions.push(at);if(positions.length!==1)return null;const start=positions[0];return {...request,selected,before:norm(context.slice(0,start)).slice(-400),after:norm(context.slice(start+selected.length)).slice(0,400)};}
 
-const wordChar = c => !!c && /[\p{L}\p{N}_'’\-]/u.test(c);
+// Hyphens separate exact lexical components; they do not license guessed inflections.
+const wordChar = c => !!c && /[\p{L}\p{N}_'’]/u.test(c);
+const matchChar=c=>/[\u2010-\u2015]/u.test(c)?'-':c.toLowerCase();
 export function makeMatcher(entries) {
   const root = new Map();
   for (const entry of entries) { if (entry.paused) continue; for (const alias of new Set([entry.canonical, ...(entry.aliases || [])].map(keyOf).filter(Boolean))) {
     if (alias.length > 150) continue; let node = root;
-    for (const c of alias) { if (!node.has(c)) node.set(c, new Map()); node = node.get(c); }
+    for (const original of alias) { if (/[\u00ad\u200b\ufeff]/u.test(original)) continue; const c=matchChar(original); if (!node.has(c)) node.set(c, new Map()); node = node.get(c); }
     if (!node.has(null)) node.set(null, entry);
   } }
   return text => {
     const clean = [], offsets = []; let inSpace = false;
-    for (let i = 0; i < text.length; i++) { const c = text[i]; if (/\s/u.test(c)) { if (!inSpace) { clean.push(' '); offsets.push(i); } inSpace = true; } else { inSpace = false; clean.push(c.toLowerCase()); offsets.push(i); } }
+    for (let i = 0; i < text.length; i++) { const c = text[i]; if (/[\u00ad\u200b\ufeff]/u.test(c)) continue; if (/\s/u.test(c)) { if (!inSpace) { clean.push(' '); offsets.push(i); } inSpace = true; } else { inSpace = false; clean.push(matchChar(c)); offsets.push(i); } }
     const haystack = clean.join(''), matches = [];
     for (let i = 0; i < haystack.length; i++) { if (wordChar(haystack[i - 1])) continue; let node = root, best = null;
       for (let j = i; j < haystack.length && node.has(haystack[j]); j++) { node = node.get(haystack[j]); if (node.has(null) && !wordChar(haystack[j + 1])) best = { start: offsets[i], end: offsets[j] + 1, entry: node.get(null), next: j + 1 }; }

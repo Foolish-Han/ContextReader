@@ -13,7 +13,7 @@ A Chrome extension for contextual English reading, asynchronous LLM explanations
 
 1. 划选不懂的词、短语或句段，点击“解释并收录”。先得到常用释义和本处含义，学习资料随后补齐。
 2. 继续阅读，也可以马上提交另一个表达。关闭浮框或文章不会取消已提交的任务。
-3. 再次遇到已收录表达，页面自动标记。悬停查看简义，自愿展开用法、记忆辅助、例句和历史语境。
+3. 已收录单词用金黄实线，短语与复合词用金黄双线，已解句段用青色实线。生成中、待确认和异常各有独立标识，工具栏可查看图例。悬停读取已保存的解释，自愿展开用法、记忆辅助、例句和历史语境。
 4. 释义不合适时解释新的语境；生成异常时重新生成。知识库支持人工修订、暂停标记、搜索、导入和导出。
 
 所有普通 HTTP / HTTPS 网页默认启用。不需要时在扩展弹窗停用该网站。页面匹配、悬停和翻历史不调用模型。
@@ -91,13 +91,14 @@ npm run verify:repo
 ```sh
 npx playwright install chromium
 npm run test:ui
+npm run test:marks
 npm run test:cloud
 npm run test:async
 npm run test:auto
 npm run test:oauth
 ```
 
-CI 在 Linux、macOS、Windows 的 Node.js 22/24 上执行同一套构建、单测和打包检查，并在三个系统上运行五套浏览器回归。[验证范围](docs/ui-review.md)区分浏览器模拟服务验收与真人服务验收。
+CI 在 Linux、macOS、Windows 的 Node.js 22/24 上执行同一套构建、单测和打包检查，并在三个系统上运行六套浏览器回归。[验证范围](docs/ui-review.md)区分浏览器模拟服务验收与真人服务验收。
 
 ## 项目管理
 

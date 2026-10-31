@@ -1,6 +1,6 @@
 {
   "name": "context-reader",
-  "version": "0.7.2",
+  "version": "0.7.3",
   "private": true,
   "type": "module",
   "description": "A local-first contextual English reading extension for Chrome",
@@ -20,7 +20,8 @@
     "test:ui": "node test/ui-audit.mjs",
     "verify:repo": "node scripts/verify-repository.mjs",
     "test:oauth": "node test/oauth-browser.mjs",
-    "configure:google": "node scripts/configure-google.mjs"
+    "configure:google": "node scripts/configure-google.mjs",
+    "test:marks": "node test/marks-browser.mjs"
   },
   "engines": {
     "node": ">=22"

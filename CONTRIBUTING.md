@@ -29,7 +29,7 @@ npm run test:auth
 npm run verify:repo
 ```
 
-阅读、设置、存储、任务或同步行为变化，还应跑相应浏览器套件：`test:ui`、`test:cloud`、`test:async`、`test:auto`、`test:oauth`。CI 五套全跑，不使用真实 LLM 或 Google 授权。
+阅读、设置、存储、任务或同步行为变化，还应跑相应浏览器套件：`test:ui`、`test:marks`、`test:cloud`、`test:async`、`test:auto`、`test:oauth`。CI 六套全跑，不使用真实 LLM 或 Google 授权。
 
 `test:live` 等真人服务脚本不能放入 CI，也不能因为重复测试而撤销已有会话。
 

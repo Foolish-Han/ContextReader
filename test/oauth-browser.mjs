@@ -9,17 +9,7 @@ const out=resolve('test-results/oauth-browser-'+Date.now()),extension=join(out,'
 const manifest=JSON.parse(await readFile(join(extension,'manifest.json'),'utf8')),origin='chrome-extension://'+extensionId(manifest.key),issuer='https://auth.openai.com';
 const {privateKey,publicKey}=await generateKeyPair('RS256'),key=await exportJWK(publicKey);key.kid='browser-fixture';
 const report={realBrowser:true,realOAuth:false,realLlm:false,checks:[]},pass=name=>{report.checks.push(name);console.log('PASS '+name);};
-let context;const launch=()=>chromium.launchPersistentContext(join(out,'profile'),{channel:'chromium',headless:true,ignoreDefaultArgs:['--disable-extensions'],args:['--load-extension='+extension,'--disable-extensions-except='+extension]});
-context=await launch();
-const rpc=(page,type,payload={})=>page.evaluate(async({type,payload})=>{const r=await chrome.runtime.sendMessage({type,payload});if(!r?.ok)throw new Error(r?.error||'No response');return r.data;},{type,payload});
-try{
- // Every auth navigation is synthetic. No person is signed in or authorized.
- await context.route(issuer+'/**',async route=>{
-  const auth=new URL(route.request().url());if(auth.pathname==='/finish'){await route.fulfill({status:302,headers:{Location:auth.searchParams.get('callback')}});return;}const callback=new URL('http://127.0.0.1:43821/auth/callback');callback.search=new URLSearchParams({state:auth.searchParams.get('state'),code:'BROWSER_FIXTURE_CODE',client_id:'oaiapp_browser_fixture'});
-  await route.fulfill({contentType:'text/html',body:'<!doctype html><title>Synthetic consent</title><a id="allow" href="'+(issuer+'/finish?callback='+encodeURIComponent(callback.href)).replaceAll('&','&amp;')+'">Allow synthetic account</a>'});
- });
- let worker=context.serviceWorkers()[0]||await context.waitForEvent('serviceworker');
- const installMock=async worker=>worker.evaluate(({key,issuer})=>{
+const mockFetch=({key,issuer})=>{
   globalThis.fixtureToken='';globalThis.fixtureCalls=[];globalThis.fetch=async(url,init={})=>{
    const raw=String(url?.url||url),path=new URL(raw).pathname;globalThis.fixtureCalls.push(path);
    if(raw===issuer+'/.well-known/openid-configuration')return Response.json({issuer,authorization_endpoint:issuer+'/authorize',token_endpoint:issuer+'/token',jwks_uri:issuer+'/jwks',revocation_endpoint:issuer+'/revoke'});
@@ -29,7 +19,20 @@ try{
    if(raw==='https://api.openai.com/v1/models')return Response.json({models:[{slug:'gpt-6-luna',display_name:'GPT-6 Luna',visibility:'list'}]});
    throw new Error('Unexpected network request in OAuth fixture');
   };
- },{key,issuer});
+ };
+const installMock=worker=>worker.evaluate(mockFetch,{key,issuer});
+await writeFile(join(extension,'background.js'),'('+mockFetch.toString()+')('+JSON.stringify({key,issuer})+');\n'+await readFile(join(extension,'background.js'),'utf8'));
+let context;const launch=()=>chromium.launchPersistentContext(join(out,'profile'),{channel:'chromium',headless:true,ignoreDefaultArgs:['--disable-extensions'],args:['--load-extension='+extension]});
+context=await launch();
+const rpc=(page,type,payload={})=>page.evaluate(async({type,payload})=>{const r=await chrome.runtime.sendMessage({type,payload});if(!r?.ok)throw new Error(r?.error||'No response');return r.data;},{type,payload});
+try{
+ // Every auth navigation is synthetic. No person is signed in or authorized.
+ await context.route(issuer+'/**',async route=>{
+  const auth=new URL(route.request().url());if(auth.pathname==='/finish'){await route.fulfill({status:302,headers:{Location:auth.searchParams.get('callback')}});return;}const callback=new URL('http://127.0.0.1:43821/auth/callback');callback.search=new URLSearchParams({state:auth.searchParams.get('state'),code:'BROWSER_FIXTURE_CODE',client_id:'oaiapp_browser_fixture'});
+  await route.fulfill({contentType:'text/html',body:'<!doctype html><title>Synthetic consent</title><a id="allow" href="'+(issuer+'/finish?callback='+encodeURIComponent(callback.href)).replaceAll('&','&amp;')+'">Allow synthetic account</a>'});
+ });
+ let worker=context.serviceWorkers()[0]||await context.waitForEvent('serviceworker');
+
  await installMock(worker);
  let options=await context.newPage();await options.goto(origin+'/options.html');
  await options.getByRole('button',{name:'Continue with ChatGPT'}).click();
@@ -69,6 +72,19 @@ try{
  await worker.evaluate(value=>globalThis.fixtureToken=value,refreshed);await worker.evaluate(inspectOAuthVault,{expire:true});await rpc(options,'CR_OAUTH_MODELS');
  assert.equal(await worker.evaluate(()=>globalThis.fixtureCalls.filter(p=>p==='/token').length),1);
  assert.equal(context.pages().some(p=>p.url().startsWith(issuer)),false);pass('expired access refreshes automatically after restart without repeating browser authentication');
+ // Exercise actual extension reload and an unpacked version upgrade in the
+ // same installation directory. Account metadata and the vault must survive.
+ for(const upgrade of [false,true]){
+  for(const page of context.pages().filter(p=>p.url().startsWith(origin)))await page.close();
+  if(upgrade){const next={...manifest,version:manifest.version.split('.').map((v,i)=>i===2?String(Number(v)+1):v).join('.')};await writeFile(join(extension,'manifest.json'),JSON.stringify(next));}
+  const management=await context.newPage();await management.goto('chrome://extensions');await management.evaluate(()=>chrome.developerPrivate.updateProfileConfiguration({inDeveloperMode:true}));
+  // Use the extension manager's reload action, matching the user's update flow.
+  await management.evaluate(id=>new Promise((resolve,reject)=>chrome.developerPrivate.reload(id,()=>chrome.runtime.lastError?reject(new Error(chrome.runtime.lastError.message)):resolve())),extensionId(manifest.key));
+  await management.waitForFunction(id=>new Promise(resolve=>chrome.developerPrivate.getExtensionsInfo({includeDisabled:true},items=>resolve(items.some(item=>item.id===id&&item.state==='ENABLED'&&!item.disableReasons.reloading)))),extensionId(manifest.key),{timeout:20000});options=await context.newPage();await options.goto(origin+'/options.html');await management.close();await options.getByRole('heading',{name:'ChatGPT 已登录'}).waitFor();await options.locator('#oauth-model option[value="gpt-6-luna"]').waitFor({state:'attached'});
+  worker=context.serviceWorkers().find(w=>w.url()===origin+'/background.js');assert.ok(worker);assert.equal(await options.evaluate(()=>chrome.runtime.getManifest().version),upgrade?manifest.version.split('.').map((v,i)=>i===2?String(Number(v)+1):v).join('.'):manifest.version);
+  assert.equal((await rpc(options,'CR_OAUTH_STATE')).session.profileId,originalProfile);assert.equal(await worker.evaluate(()=>globalThis.fixtureCalls.filter(p=>p==='/token').length),0);assert.equal(context.pages().some(p=>p.url().startsWith(issuer)),false);
+  pass(upgrade?'an extension version upgrade reuses the same verified account without authorization':'reloading the extension preserves the encrypted login and account selection');
+ }
  await context.route(issuer+'/**',route=>route.fulfill({contentType:'text/html',body:'<!doctype html><title>Synthetic pending sign-in</title>'}));
  await options.locator('#logout').click();await options.getByRole('button',{name:'Continue with ChatGPT'}).waitFor();
  await options.getByRole('button',{name:'Continue with ChatGPT'}).click();await options.locator('#cancel-auth').waitFor();await options.locator('#cancel-auth').click();await options.getByRole('button',{name:'Continue with ChatGPT'}).waitFor();
