@@ -10,8 +10,8 @@ let init,state={expanded:false,tab:'usage',loading:false,checking:true,error:'',
 const parentMessage=(type,payload={})=>parent.postMessage({type,nonce,...payload},'*');
 // Keep controls mounted between pointer/key down and their native click event.
 let interactionActive=false,pendingRender=null,interactionTimer;
-const beginInteraction=()=>{clearTimeout(interactionTimer);interactionActive=true;};
-const finishInteraction=()=>{clearTimeout(interactionTimer);interactionTimer=setTimeout(()=>{interactionActive=false;const next=pendingRender;pendingRender=null;if(next)render(next);},0);};
+const beginInteraction=()=>{clearTimeout(interactionTimer);interactionActive=true;parentMessage('cr-interaction',{active:true});};
+const finishInteraction=()=>{clearTimeout(interactionTimer);interactionTimer=setTimeout(()=>{interactionActive=false;const next=pendingRender;pendingRender=null;if(next)render(next);parentMessage('cr-interaction',{active:false});},0);};
 root.addEventListener('pointerdown',beginInteraction,{capture:true});
 root.addEventListener('pointerleave',()=>{if(interactionActive)finishInteraction();});
 document.addEventListener('pointerup',finishInteraction,{capture:true});
