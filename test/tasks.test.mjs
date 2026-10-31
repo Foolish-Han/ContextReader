@@ -87,3 +87,7 @@ test('regeneration carries the complete previous expression, keeps missing IPA a
 test('passage task commits occurrence positions together with its saved explanation',async()=>{
  const h=harness(),req={...request('Read it.','Read it. Read it.'),kind:'passage'},id=(await h.queue.submit(req)).task.id;await wait(()=>h.calls.length===1);h.calls[0].resolve({data:{kind:'passage',meaning:'句意',explanation:'结构',uncertainty:'',candidates:[]},model:'fast',provider:'fixture'});await wait(async()=>(await h.queue.get(id)).state==='done');assert.equal((await h.repository.passageIndex(req.source.url))[0].request.after,'Read it.');assert.equal(h.calls.length,1);
 });
+
+test('outer punctuation may be trimmed without substituting a different expression',async()=>{
+ const h=harness(),req=request('"honed,"','The word is "honed," here.'),id=(await h.queue.submit(req)).task.id;await wait(()=>h.calls.length===1);h.calls[0].resolve(output('honed','hone'));const saved=await wait(async()=>{const t=await h.queue.get(id);return t.state==='done'?t:null;});assert.equal(saved.data.current.selected,'honed');assert.equal(saved.data.current.before,'The word is "');assert.equal(saved.data.current.after,'," here.');assert.equal((await h.queue.pageTasks(req.source.url)).length,0);
+});

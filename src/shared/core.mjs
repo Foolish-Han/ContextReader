@@ -39,8 +39,8 @@ export function locateOccurrence(text,request){
  return hits.length===1?hits[0]:null;
 }
 // A boundary suggestion must contain the submitted occurrence, including when
-// it expands to the left. A matching phrase elsewhere is not evidence.
-export function expandSelection(request,surface){const context=norm(request.context),selected=norm(surface),original=locateOccurrence(context,request);if(!selected||!original)return null;const positions=[];let at=-1;while((at=context.toLowerCase().indexOf(selected.toLowerCase(),at+1))>=0)if(at<=original.start&&at+selected.length>=original.end)positions.push(at);if(positions.length!==1)return null;const start=positions[0];return {...request,selected,before:norm(context.slice(0,start)).slice(-400),after:norm(context.slice(start+selected.length)).slice(0,400)};}
+// it expands to the left. Trimming only outer punctuation is also allowed. A matching phrase elsewhere is not evidence.
+export function expandSelection(request,surface){const context=norm(request.context),selected=norm(surface),original=locateOccurrence(context,request);if(!selected||!original)return null;const positions=[];let at=-1;while((at=context.toLowerCase().indexOf(selected.toLowerCase(),at+1))>=0)if(at<=original.start&&at+selected.length>=original.end||at>=original.start&&at+selected.length<=original.end&&/^[\s\p{P}]*$/u.test(context.slice(original.start,at)+context.slice(at+selected.length,original.end)))positions.push(at);if(positions.length!==1)return null;const start=positions[0];return {...request,selected,before:norm(context.slice(0,start)).slice(-400),after:norm(context.slice(start+selected.length)).slice(0,400)};}
 
 // Hyphens separate exact lexical components; they do not license guessed inflections.
 const wordChar = c => !!c && /[\p{L}\p{N}_'’]/u.test(c);
