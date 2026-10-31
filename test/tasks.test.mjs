@@ -91,3 +91,8 @@ test('passage task commits occurrence positions together with its saved explanat
 test('outer punctuation may be trimmed without substituting a different expression',async()=>{
  const h=harness(),req=request('"honed,"','The word is "honed," here.'),id=(await h.queue.submit(req)).task.id;await wait(()=>h.calls.length===1);h.calls[0].resolve(output('honed','hone'));const saved=await wait(async()=>{const t=await h.queue.get(id);return t.state==='done'?t:null;});assert.equal(saved.data.current.selected,'honed');assert.equal(saved.data.current.before,'The word is "');assert.equal(saved.data.current.after,'," here.');assert.equal((await h.queue.pageTasks(req.source.url)).length,0);
 });
+
+test('only the latest task marks an occurrence; successful regeneration retires stale failure marks',async()=>{
+ const h=harness(),req=request(),first=(await h.queue.submit(req)).task.id;await wait(()=>h.calls.length===1);h.calls[0].reject(new Error('old failure'));await wait(async()=>(await h.queue.get(first)).state==='failed');const newer=(await h.queue.regenerate({request:req})).task.id;await wait(()=>h.calls.length===2);assert.deepEqual((await h.queue.pageTasks(req.source.url)).map(t=>t.id),[newer]);h.calls[1].resolve(output());await wait(async()=>(await h.queue.get(newer)).state==='done');assert.deepEqual(await h.queue.pageTasks(req.source.url),[]);assert.equal((await h.queue.get(first)).state,'failed');assert.equal(h.disk().tasks.find(t=>t.id===first).supersededBy,newer);
+ await h.queue.retry(first);await wait(()=>h.calls.filter(c=>c.kind==='quick').length===3);assert.deepEqual((await h.queue.pageTasks(req.source.url)).map(t=>t.id),[first]);await h.queue.cancel(first);assert.deepEqual(await h.queue.pageTasks(req.source.url),[]);
+});
