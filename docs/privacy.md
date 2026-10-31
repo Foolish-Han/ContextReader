@@ -7,8 +7,8 @@
 | 表达、IPA、资料、语境、句段、人工修订 | 当前 Chrome 扩展 IndexedDB | 连接后同步 |
 | 生成任务与进度 | 本机扩展存储 | 不同步 |
 | API Key | 本次浏览器会话，或用户选择的扩展本地存储 | 不同步 |
-| ChatGPT refresh/ID token | Windows 用户目录下 DPAPI 加密的认证助手存储 | 不同步 |
-| ChatGPT access token | 单次请求期间的后台内存 | 不同步，不写入浏览器存储 |
+| ChatGPT access/refresh/ID token | 独立扩展 IndexedDB 中的 AES-GCM 密文；明文仅在后台内存中 | 不同步，不导出 |
+| 未完成的 ChatGPT 登录（state/nonce/PKCE） | TRUSTED_CONTEXTS 限制的 `chrome.storage.session`，浏览器退出时清除 | 不同步 |
 | 站点开关与外观 | 本机扩展存储 | 不同步 |
 
 ## 发送什么
@@ -25,11 +25,12 @@
 - `contextMenus`：从选区菜单解释。
 - `alarms`：Chrome 运行时唤醒任务和云端同步。
 - `identity`：由 Chrome 发起 Google 授权。
+- `webRequest`：仅监听 `127.0.0.1` 主框架导航，在本次登录标签页中校验准确回调路径、端口和随机 state 后接收 OAuth 结果。不监听文章请求正文。
 
 Google 仅申请 `drive.appdata`，使用该应用的隐藏数据空间，不提供一般 Drive 文件浏览权限。公开 Client ID 不赋予任何用户数据访问权，仍需本人授权。
 
 ## 删除与退出
 
-在知识库删除表达会删除其语境，已连接时同步删除标记。断开 Google 保留本机知识，停止后续同步；重新连接同账号可继续。移除 API Key、退出 ChatGPT、删除知识库是不同操作。
+在知识库删除表达会删除其语境，已连接时同步删除标记。断开 Google 保留本机知识，停止后续同步；重新连接同账号可继续。移除 API Key、退出 ChatGPT、删除知识库是不同操作。重启浏览器保留已完成的 ChatGPT 登录；主动退出清除对应账号的本机凭据。密钥和密文位于同一浏览器资料，不能把本机加密描述成系统钥匙串或对资料被攻陷的保护。
 
 卸载扩展或删除 Chrome 个人资料会移除本机数据。已确认同步的知识库可在同应用和同账号恢复；尚未确认的离线改动应先等待同步或导出。真实两设备恢复仍在路线图验证项中。

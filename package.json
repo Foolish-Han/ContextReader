@@ -1,12 +1,12 @@
 {
   "name": "context-reader",
-  "version": "0.7.1",
+  "version": "0.7.3",
   "private": true,
   "type": "module",
   "description": "A local-first contextual English reading extension for Chrome",
   "scripts": {
-    "build": "node scripts/build-auth.mjs && node scripts/build.mjs",
-    "test": "node scripts/build-auth.mjs && node scripts/build-auth-tests.mjs && node --test test/*.test.mjs",
+    "build": "node scripts/build.mjs",
+    "test": "node scripts/build-auth-tests.mjs && node --test test/*.test.mjs",
     "test:e2e": "node test/oauth-live.mjs",
     "test:live": "node test/oauth-live.mjs",
     "test:auth": "node scripts/build-auth-tests.mjs && node --test vendor/siwc-local/test/*.test.mjs",
@@ -14,12 +14,14 @@
     "test:review": "node test/review.mjs",
     "test:smoke": "node test/ui-smoke.mjs",
     "test:design": "node test/design.mjs",
-    "auth": "node auth/server.mjs",
     "test:auto": "node test/auto-enable.mjs",
     "test:async": "node test/async.mjs",
     "test:cloud": "node test/cloud-browser.mjs",
     "test:ui": "node test/ui-audit.mjs",
-    "verify:repo": "node scripts/verify-repository.mjs"
+    "verify:repo": "node scripts/verify-repository.mjs",
+    "test:oauth": "node test/oauth-browser.mjs",
+    "configure:google": "node scripts/configure-google.mjs",
+    "test:marks": "node test/marks-browser.mjs"
   },
   "engines": {
     "node": ">=22"
@@ -38,6 +40,7 @@
   },
   "devDependencies": {
     "esbuild": "0.28.2",
+    "fflate": "0.8.3",
     "jsdom": "29.1.1",
     "playwright": "1.64.1"
   },

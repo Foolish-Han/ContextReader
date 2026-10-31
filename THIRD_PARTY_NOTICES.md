@@ -7,9 +7,9 @@ The root MIT license covers independently authored Context Reader code and docum
 `vendor/siwc-local/` contains the OpenAI Sign-in with ChatGPT DevKit, pinned at commit `0a36fefeb913055c8c7a1a29b63d82b96b2e841a`.
 
 - Original source, license, attribution, provenance and change notices are retained in that directory.
-- The DevKit and its generated modified runtime `auth/siwc-runtime.mjs` are governed by the [Sign-in with ChatGPT DevKit Noncommercial License v1.0](vendor/siwc-local/LICENSE).
-- The `acquireAccessToken` modification injected by `scripts/build-auth.mjs` is distributed under that same noncommercial license. This is also stated in the build script and generated runtime.
-- The independently authored extension, API Key integration, helper HTTP boundary and Windows encryption adapter remain under the root MIT license. An interface call does not relicense the DevKit.
+- The DevKit and the browser OAuth adaptation in `src/background/oauth.mjs` are governed by the [Sign-in with ChatGPT DevKit Noncommercial License v1.0](vendor/siwc-local/LICENSE).
+- The former Node helper, DPAPI adapter and injected `acquireAccessToken` runtime have been removed. The browser adaptation retains OAuth protocol and identity checks with an encrypted extension-origin IndexedDB vault and callback observation.
+- Independently authored extension UI, API Key integration and task/sync code remain under the root MIT license.
 - The complete distribution includes this noncommercial component. **Do not interpret the repository's MIT license as commercial-use permission for the DevKit or complete bundled distribution.** Commercial use of that component requires separate permission under its license.
 
 The authentication component and its changes are documented in [MODIFICATIONS.md](vendor/siwc-local/MODIFICATIONS.md). The license grants no service access or trademark rights.
@@ -22,7 +22,7 @@ The authentication component and its changes are documented in [MODIFICATIONS.md
 | Radix Colors | MIT | `dist/licenses/radix-colors-MIT.txt` after build |
 | Lucide icons, including the book mark | ISC | `dist/licenses/lucide-ISC.txt` after build |
 | Geist, Inter, Literata, Noto Sans SC, Noto Serif SC | SIL Open Font License | `dist/fonts/*-LICENSE` after build |
-| jose, proper-lockfile and transitive npm dependencies | Their package licenses | Installed with the pinned `package-lock.json`; notices travel with the npm packages |
+| jose, proper-lockfile, fflate (development ZIP tooling) and transitive npm dependencies | Their package licenses | Installed with the pinned `package-lock.json`; notices travel with the npm packages |
 | PM skills | MIT | `.agents/vendor/pm-skills-LICENSE` |
 | Frontend design skill | Apache-2.0 | `.agents/skills/frontend-design/LICENSE.txt` |
 

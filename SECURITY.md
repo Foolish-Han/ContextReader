@@ -14,8 +14,8 @@
 
 - 解释需要读取明确选区及有限上下文；模型调用由用户动作触发。
 - 内容脚本不能读取受保护的扩展密钥存储。凭据不进入 DOM、知识库导出或 Drive 快照。
-- ChatGPT refresh/ID token 留在 Windows DPAPI 保护的助手中，短期 access token 仅进入后台内存。
-- 认证助手只监听本机回环地址，核对扩展 Origin，不提供推理转发接口。
+- ChatGPT 凭据以 AES-GCM 密文保存在扩展 Origin 的独立 IndexedDB，密钥为不可导出的 Web Crypto CryptoKey；明文只在后台内存中。该数据库不参与知识库导出或 Google 同步。非导出密钥不等于操作系统钥匙串，无法保护已被控制的浏览器资料或可信扩展上下文。
+- OAuth 回调只接受本次登录标签页的顶层导航，校验完整回环地址、state、PKCE、nonce、签名和账号，不启动本机认证服务。
 - Google 仅请求 `drive.appdata`；切换账号不允许静默把旧账号资料上传到新账号。
 - 自动重试不能把已发出但结果未确认的任务当作未发送请求重放。
 - 公开 Client ID 和扩展公钥需要随应用分发；它们不代替用户授权。

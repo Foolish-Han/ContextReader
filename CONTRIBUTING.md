@@ -10,7 +10,7 @@
 
 ## 本地准备
 
-见 [开发指南](docs/development.md)。Windows 是当前完整验证平台，Node.js 22+，依赖以 `npm ci` 和 lockfile 为准。`dist` 不入库；构建后加载根目录的 `dist`。
+见 [开发指南](docs/development.md)。CI 在 Linux、macOS、Windows 运行相同检查；本机浏览器回归使用当前平台的 Playwright Chromium，Node.js 22+，依赖以 `npm ci` 和 lockfile 为准。`dist` 不入库；构建后加载根目录的 `dist`。
 
 ## 分支与提交
 
@@ -22,14 +22,14 @@
 
 ## 验证要求
 
-```powershell
+```sh
 npm run build
 npm test
 npm run test:auth
 npm run verify:repo
 ```
 
-阅读、设置、存储、任务或同步行为变化，还应跑相应浏览器套件：`test:ui`、`test:cloud`、`test:async`、`test:auto`。CI 四套全跑，不使用真实 LLM 或 Google 授权。
+阅读、设置、存储、任务或同步行为变化，还应跑相应浏览器套件：`test:ui`、`test:marks`、`test:cloud`、`test:async`、`test:auto`、`test:oauth`。CI 六套全跑，不使用真实 LLM 或 Google 授权。
 
 `test:live` 等真人服务脚本不能放入 CI，也不能因为重复测试而撤销已有会话。
 
