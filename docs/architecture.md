@@ -8,7 +8,7 @@ flowchart LR
   Worker --> Knowledge[(IndexedDB 知识库)]
   Knowledge --> Sync[自动合并与同步]
   Sync --> Drive[用户 Google Drive appDataFolder]
-  Worker -->|仅获取短期凭据| Auth[Windows 认证助手]
+  Worker --> Auth[浏览器内 OAuth]
   Auth --> OpenAI[OpenAI 登录与刷新]
 ```
 
@@ -20,8 +20,7 @@ flowchart LR
 | `src/ui` | 阅读卡、设置、知识库、任务、工具栏及共享组件/外观 |
 | `src/background` | 显式模型调用、持久队列、Google 身份与同步协调 |
 | `src/shared` | 输入校验、缓存键、模型结构/提示词、知识库与合并 |
-| `auth` | Origin 限制的回环 HTTP 服务、DPAPI、DevKit 适配 |
-| `vendor/siwc-local` | 固定版本的第三方登录组件及原许可 |
+| `vendor/siwc-local` | 固定上游源码、测试、来源记录及原许可；产品的浏览器适配位于 `src/background/oauth.mjs` |
 | `extension` | manifest 构建输入、稳定公钥、公开 Google 应用 ID、图标和 HTML |
 | `test` | 单测、模拟网络服务、隔离浏览器验证；真人服务脚本单独使用 |
 

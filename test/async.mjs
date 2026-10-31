@@ -1,5 +1,5 @@
 import {chromium} from 'playwright';
-import {readFile,writeFile,readdir,cp,mkdir} from 'node:fs/promises';
+import {readFile,writeFile,cp,mkdir} from 'node:fs/promises';
 import {resolve,join} from 'node:path';
 import http from 'node:http';
 import assert from 'node:assert/strict';
@@ -21,9 +21,9 @@ const server=http.createServer(async(req,res)=>{
  const end=()=>{if(!item.done){item.done=true;active--;}};res.on('close',end);
  item.complete=()=>{if(item.done)return;const data=kind==='learn'?{usage:'离线用法',memory:'离线记忆资料',examples:[],etymology:'',etymologySource:''}:quickData(payload.selected);res.write('data: '+JSON.stringify({type:'response.output_text.delta',delta:JSON.stringify(data)})+'\n\n');res.write('data: '+JSON.stringify({type:'response.completed',response:{usage:{input_tokens:1,output_tokens:1}}})+'\n\n');res.end('data: [DONE]\n\n');end();};
 });await new Promise(r=>server.listen(0,'127.0.0.1',r));const site='http://127.0.0.1:'+server.address().port;
-const folder=(await readdir('.local/browsers')).filter(n=>/^chromium-\d+$/.test(n)).sort().at(-1);let context,library,article;
+let context,library,article;
 const rpc=(page,type,payload={})=>page.evaluate(async({type,payload})=>{const r=await chrome.runtime.sendMessage({type,payload});if(!r?.ok)throw new Error(r?.error||'No RPC response');return r.data;},{type,payload});
-async function launch(){context=await chromium.launchPersistentContext(profile,{executablePath:join(root,'.local/browsers',folder,'chrome-win64/chrome.exe'),channel:'chromium',ignoreDefaultArgs:['--disable-extensions'],headless:true,viewport:{width:1360,height:920},args:[`--load-extension=${extension}`,`--disable-extensions-except=${extension}`]});context.on('page',p=>p.on('pageerror',error=>report.errors.push(error.message)));library=await context.newPage();await library.goto(origin+'/library.html?view=tasks');}
+async function launch(){context=await chromium.launchPersistentContext(profile,{channel:'chromium',ignoreDefaultArgs:['--disable-extensions'],headless:true,viewport:{width:1360,height:920},args:[`--load-extension=${extension}`,`--disable-extensions-except=${extension}`]});context.on('page',p=>p.on('pageerror',error=>report.errors.push(error.message)));library=await context.newPage();await library.goto(origin+'/library.html?view=tasks');}
 async function select(page,id,text){await page.evaluate(({id,text})=>{const node=document.querySelector('#'+id).firstChild,at=node.textContent.indexOf(text),range=document.createRange();range.setStart(node,at);range.setEnd(node,at+text.length);getSelection().removeAllRanges();getSelection().addRange(range);node.parentElement.dispatchEvent(new MouseEvent('mouseup',{bubbles:true}));},{id,text});return until(async()=>{const f=page.frames().find(f=>f.url().startsWith(origin+'/card.html'));return f&&await f.locator('.selection-preview,.term-heading,.task-receipt').count()?f:null;});}
 async function submitUI(id,text){const card=await select(article,id,text);await card.locator('#run').waitFor();const start=Date.now();await card.locator('#run').click();await card.locator('.task-receipt').waitFor();report.receiptsMs.push(Date.now()-start);const taskId=await card.locator('.task-receipt').getAttribute('data-task-id');return {card,id:taskId};}
 const quick=word=>calls.find(c=>c.kind==='quick'&&c.selected===word&&!c.done);

@@ -1,7 +1,7 @@
 import { DEFAULTS, sanitizeRequest, contextKey, providerIdentity, errorText, validateEndpoint,surroundings,safeUrl,digest } from '../shared/core.mjs';
 import { createRepository, indexedAdapter } from '../shared/store.mjs';
 import {infer,listOAuthModels} from './provider.mjs';
-import {createOAuthBroker} from './oauth.mjs';
+import {createBrowserOAuth} from './oauth.mjs';
 import {createReadingController} from './reading.mjs';
 import {createTaskQueue,connectionIdentity,taskConfig} from './tasks.mjs';
 import {createGoogleDrive} from './google-drive.mjs';
@@ -12,11 +12,13 @@ const repository=createRepository(indexedAdapter());
 const retainWorker=()=>{const timer=setInterval(()=>chrome.runtime.getPlatformInfo().catch(()=>{}),20000);return ()=>clearInterval(timer);};
 const privateUi=sender=>sender.url?.startsWith(chrome.runtime.getURL(''));
 const initialize=Promise.all([chrome.storage.local.setAccessLevel({accessLevel:'TRUSTED_CONTEXTS'}),chrome.storage.session.setAccessLevel({accessLevel:'TRUSTED_CONTEXTS'})]);
-async function settings(){await initialize;const cfg={...DEFAULTS,...(await chrome.storage.local.get('settings')).settings};if(cfg.mode==='codex')cfg.mode='oauth';return cfg;}
+async function settings(){await initialize;const cfg={...DEFAULTS,...(await chrome.storage.local.get('settings')).settings};if(cfg.mode==='codex')cfg.mode='oauth';delete cfg.oauthUrl;return cfg;}
 async function apiKey(){return (await chrome.storage.session.get('apiKey')).apiKey||(await chrome.storage.local.get('apiKey')).apiKey||'';}
 
-function broker(cfg){return createOAuthBroker(cfg.oauthUrl);}
-async function authorize(cfg,signal){try{return await broker(cfg)('/access',{profileId:cfg.oauthProfileId},{signal});}catch(error){throw Object.assign(error,{code:'connection'});}}
+const oauth=createBrowserOAuth({chrome});
+chrome.webRequest.onBeforeRequest.addListener(details=>{void initialize.then(()=>oauth.callback(details)).catch(()=>{});},{urls:['http://127.0.0.1/*'],types:['main_frame']});
+chrome.tabs.onRemoved.addListener(tabId=>{void initialize.then(()=>oauth.tabClosed(tabId)).catch(()=>{});});
+async function authorize(cfg,signal){try{return await oauth.access(cfg.oauthProfileId,{signal});}catch(error){throw Object.assign(error,{code:'connection'});}}
 async function languageInfer(cfg,key,task,payload,options={}){
  const controller=new AbortController();if(cfg.mode==='oauth')oauthControllers.add(controller);
  try{return await infer({...cfg,model:cfg.mode==='oauth'?cfg.oauthModel:cfg.model},key,task,payload,{...options,signal:AbortSignal.any([AbortSignal.timeout(120000),controller.signal,...(options.signal?[options.signal]:[])]),authorize:()=>key&&typeof key==='object'?Promise.resolve(key):authorize(cfg)});}finally{oauthControllers.delete(controller);}
@@ -73,7 +75,7 @@ export async function dispatch(type,payload,sender,progress=()=>{}){
   if(type==='CR_COMMIT')return tasks.confirm(payload.id,!!payload.original);
   if(type==='CR_GET_SETTINGS'){const cfg=await settings();return {...cfg,hasApiKey:!!await apiKey()};}
   if(type==='CR_SAVE_SETTINGS'){
-    const previous=await settings();const cfg={...previous,mode:payload.mode==='api'?'api':'oauth',model:String(payload.model??previous.model??'').trim().slice(0,100),oauthModel:String(payload.oauthModel??previous.oauthModel??'').trim().slice(0,100),protocol:payload.protocol==='chat'?'chat':'responses',baseUrl:validateEndpoint(payload.baseUrl||DEFAULTS.baseUrl),oauthUrl:DEFAULTS.oauthUrl,rememberKey:!!payload.rememberKey};
+    const previous=await settings();const cfg={...previous,mode:payload.mode==='api'?'api':'oauth',model:String(payload.model??previous.model??'').trim().slice(0,100),oauthModel:String(payload.oauthModel??previous.oauthModel??'').trim().slice(0,100),protocol:payload.protocol==='chat'?'chat':'responses',baseUrl:validateEndpoint(payload.baseUrl||DEFAULTS.baseUrl),rememberKey:!!payload.rememberKey};
     if(cfg.mode==='api'&&!cfg.model)throw new Error('请填写 Model Name。');
     if(payload.apiKey&&payload.apiKey.length>2000)throw new Error('API Key 格式不正确。');
     if(payload.apiKey){const fingerprint=await digest('context-reader-key-reference:'+payload.apiKey.trim()),refs=(await chrome.storage.local.get('apiKeyReferences')).apiKeyReferences||{};cfg.apiKeyId=refs[fingerprint]||crypto.randomUUID();refs[fingerprint]=cfg.apiKeyId;await chrome.storage.local.set({apiKeyReferences:refs});}
@@ -82,13 +84,13 @@ export async function dispatch(type,payload,sender,progress=()=>{}){
     else if(!cfg.rememberKey&&previous.rememberKey){const value=await apiKey();await chrome.storage.local.remove('apiKey');if(value)await chrome.storage.session.set({apiKey:value});}await tasks.connectionChanged();return {saved:true};
   }
   if(type==='CR_FORGET_KEY'){await chrome.storage.local.remove('apiKey');await chrome.storage.session.remove('apiKey');const cfg=await settings();cfg.apiKeyId=crypto.randomUUID();await chrome.storage.local.set({settings:cfg});await tasks.connectionChanged();return true;}
-  if(type==='CR_OAUTH_STATE'){const cfg=await settings();return {...await broker(cfg)('/session'),pendingAttemptId:(await chrome.storage.session.get('oauthAttemptId')).oauthAttemptId||''};}
+  if(type==='CR_OAUTH_STATE'){return {...await oauth.state(),pendingAttemptId:(await chrome.storage.session.get('oauthAttemptId')).oauthAttemptId||''};}
   if(type==='CR_OAUTH_START'){
-    await tasks.connectionChanged({oauthOnly:true,force:true});stopOAuthRequests();const cfg=await settings(),result=await broker(cfg)('/signin/start',{profileId:payload.profileId||'',reconsent:!!payload.reconsent});
+    await tasks.connectionChanged({oauthOnly:true,force:true});stopOAuthRequests();const result=await oauth.begin({profileId:payload.profileId||'',reconsent:!!payload.reconsent});
     await chrome.storage.session.set({oauthAttemptId:result.attemptId});return {attemptId:result.attemptId};
   }
   if(type==='CR_OAUTH_POLL'){
-    const cfg=await settings(),id=String(payload.attemptId||(await chrome.storage.session.get('oauthAttemptId')).oauthAttemptId||'');const result=await broker(cfg)('/signin/poll',{attemptId:id});
+    const cfg=await settings(),id=String(payload.attemptId||(await chrome.storage.session.get('oauthAttemptId')).oauthAttemptId||'');const result=await oauth.poll(id);
     if(result.status==='complete'){
       const next={...cfg,oauthProfileId:result.session.profileId};let models=[],catalogError='';
       if(result.session.sharing)try{models=await oauthModels(next);}catch(error){catalogError=errorText(error);}
@@ -96,16 +98,16 @@ export async function dispatch(type,payload,sender,progress=()=>{}){
     }
     if(result.status!=='pending')await chrome.storage.session.remove('oauthAttemptId');return result;
   }
-  if(type==='CR_OAUTH_CANCEL'){const cfg=await settings(),id=String(payload.attemptId||'');const result=await broker(cfg)('/signin/cancel',{attemptId:id});await chrome.storage.session.remove('oauthAttemptId');return result;}
+  if(type==='CR_OAUTH_CANCEL'){const id=String(payload.attemptId||'');const result=await oauth.cancel(id);await chrome.storage.session.remove('oauthAttemptId');return result;}
   if(type==='CR_OAUTH_SELECT'){
-    await tasks.connectionChanged({oauthOnly:true,force:true});stopOAuthRequests();const cfg=await settings(),result=await broker(cfg)('/profiles/select',{profileId:payload.profileId});const next={...cfg,oauthProfileId:result.session.profileId};let models=[],catalogError='';if(result.session.sharing)try{models=await oauthModels(next);}catch(error){catalogError=errorText(error);}const saved=await saveOAuthSelection(result.session,models);return {...result,models,settings:saved,catalogError};
+    await tasks.connectionChanged({oauthOnly:true,force:true});stopOAuthRequests();const cfg=await settings(),result=await oauth.select(payload.profileId);const next={...cfg,oauthProfileId:result.session.profileId};let models=[],catalogError='';if(result.session.sharing)try{models=await oauthModels(next);}catch(error){catalogError=errorText(error);}const saved=await saveOAuthSelection(result.session,models);return {...result,models,settings:saved,catalogError};
   }
   if(type==='CR_OAUTH_LOGOUT'){
-    await tasks.connectionChanged({oauthOnly:true,force:true});stopOAuthRequests();const cfg=await settings();try{return await broker(cfg)('/profiles/logout',{profileId:cfg.oauthProfileId});}finally{cfg.oauthModel='';await chrome.storage.local.set({settings:cfg});}
+    await tasks.connectionChanged({oauthOnly:true,force:true});stopOAuthRequests();const cfg=await settings();try{return await oauth.disconnect(cfg.oauthProfileId);}finally{cfg.oauthModel='';await chrome.storage.local.set({settings:cfg});}
   }
   if(type==='CR_OAUTH_MODELS'){const cfg=await settings();return oauthModels(cfg);}
   if(type==='CR_CHECK_CONNECTION'){
-    const cfg=await settings();if(cfg.mode==='oauth'){const state=await broker(cfg)('/session');if(!state.session.sharing)throw new Error('请先通过 Continue with ChatGPT 登录并授权使用订阅额度。');const models=await oauthModels(cfg);return {ready:true,provider:'openai-sdk-oauth',...state,models};}
+    const cfg=await settings();if(cfg.mode==='oauth'){const state=await oauth.state();if(!state.session.sharing)throw new Error('请先通过 Continue with ChatGPT 登录并授权使用订阅额度。');const models=await oauthModels(cfg);return {ready:true,provider:'openai-sdk-oauth',...state,models};}
     const {default:OpenAI}=await import('openai');const client=new OpenAI({apiKey:await apiKey(),baseURL:cfg.baseUrl,dangerouslyAllowBrowser:true,maxRetries:0,timeout:15000});await client.models.list();return {ready:true,provider:'openai-sdk'};
   }
   if(type==='CR_SNAPSHOT')return repository.snapshot();

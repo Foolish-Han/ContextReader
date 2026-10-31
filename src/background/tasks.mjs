@@ -3,8 +3,8 @@ import {cloudContextKey} from '../shared/cloud.mjs';
 
 const ACTIVE=new Set(['queued','preparing','running']);
 const ATTENTION=new Set(['failed','blocked','interrupted','save_failed','confirm']);
-export const connectionIdentity=c=>JSON.stringify(c.mode==='oauth'?['oauth',c.oauthProfileId||'',c.oauthUrl]:['api',c.baseUrl,c.protocol,c.apiKeyId||'']);
-export function taskConfig(c){return Object.fromEntries(['mode','model','oauthModel','oauthProfileId','oauthUrl','baseUrl','protocol','apiKeyId'].map(k=>[k,c[k]??'']));}
+export const connectionIdentity=c=>JSON.stringify(c.mode==='oauth'?['oauth',c.oauthProfileId||'']:['api',c.baseUrl,c.protocol,c.apiKeyId||'']);
+export function taskConfig(c){return Object.fromEntries(['mode','model','oauthModel','oauthProfileId','baseUrl','protocol','apiKeyId'].map(k=>[k,c[k]??'']));}
 const failure=(message,code='connection')=>Object.assign(new Error(message),{code});
 
 // All state changes pass through the repository's serialized IndexedDB write.

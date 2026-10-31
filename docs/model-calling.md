@@ -9,25 +9,30 @@
 | ChatGPT 订阅 | Context Reader 独立 OAuth，用户在 OpenAI 页面登录并允许使用订阅 | 扩展 service worker → 官方 OpenAI SDK → `https://api.openai.com/v1/responses` | 当前授权账号的 ChatGPT 可用额度 |
 | API Key | 用户提供服务 Key、Base URL、Model Name | 扩展 service worker → 官方 OpenAI SDK → 所配置服务的 Responses 或 Chat Completions | 对应服务的 API 额度 |
 
-**订阅模式不经过 Codex，也没有模型转发服务。** Windows 认证助手仅处理 OAuth：
+扩展内完成独立 OAuth，无本机认证助手或推理转发服务：
 
 ```text
 设置中 Continue with ChatGPT
-  → 扩展请求本机认证助手开始授权
-  → 官方 DevKit 打开系统浏览器，生成 PKCE / nonce / state
-  → 本人完成 OpenAI 登录、订阅授权
-  → OpenAI 回调动态 loopback 端口 /auth/callback
-  → DevKit 验证回调和签名，保存动态注册与加密凭据
+  → 扩展生成 PKCE / nonce / state，保存本次会话及标签页 ID
+  → 打开 OpenAI 登录页，本人完成登录、订阅授权
+  → OpenAI 返回 http://127.0.0.1:43821/auth/callback
+  → Chrome webRequest 观察本次标签页的主框架请求
+  → 扩展校验地址和 state，消耗授权码，验证 ID token 签名及身份
   → 设置显示账号，读取该账号可用模型
 
 一次订阅解释：
-  扩展后台 → 认证助手 /access（仅 profile ID，无文章）
-           ← 当前账号 access token（必要时先刷新）
-  扩展后台 → api.openai.com/v1/responses（选区和上下文）
-           ← 流式解释 → 本地校验、保存 → 阅读浮层
+  扩展后台从内存获取 access token，必要时直接向 OpenAI 刷新
+  → api.openai.com/v1/responses（选区和上下文）
+  ← 流式解释 → 本地校验、保存 → 阅读浮层
 ```
 
-认证接口固定 `127.0.0.1:43821`，只允许当前扩展 Origin、准确 Host、JSON POST 和自定义请求头；OAuth 回调是 DevKit 自己管理的另一个临时端口。refresh token / ID token 留在认证助手，使用 Windows DPAPI CurrentUser 加密，目录为 `%LOCALAPPDATA%\ContextReader\OAuth`。access token 只存在于后台请求内存，不经 UI RPC，不写入浏览器存储或备份。
+回环地址用于保持官方开源订阅授权协议的回调形式；没有服务监听端口，扩展观察回调后将该标签页转到不含凭据的结果页。此浏览器适配已经过真实 Chrome / 合成授权服务验证；真实 OpenAI 服务器是否接受及完整订阅调用仍需本人手动验收。协议依据：[Registration and sign-in](https://developers.openai.com/siwc/token-sharing-open-source/sign-in)。
+
+已完成的登录写入独立 `context-reader-auth` IndexedDB，access/refresh/ID token 整体以 AES-GCM 加密，密钥为同一扩展 Origin 内不可导出的 Web Crypto CryptoKey。明文只在后台内存中，Chrome local/session storage、页面 RPC、知识库、导出和 Drive 均不持久保存明文凭据。该方案不依赖原生服务或平台脚本，也不等同于系统钥匙串。
+
+重启浏览器后解密有效访问凭据，避免在 `earliest_refresh_at` 前重复刷新；过期后才刷新。稳定 host ID、issued client ID、已验证账号信息和选择保持不变。旧版会话凭据自动迁入加密数据库；未完成的登录仍只保存在 TRUSTED_CONTEXTS 限制的 `chrome.storage.session`，不会在浏览器重启后重放授权码。
+
+刷新请求串行并在派发前保存标记。收到成功响应后，先加密保存轮换结果，再验证刷新后的身份；JWKS 暂时不可用时保留检查点，下次只补身份验证，不重发旧 refresh token。已确认的临时服务错误保留登录供稍后重试；授权撤销清除凭据。若 worker 或浏览器在请求结果未确认前终止，则要求明确重新授权，不猜测请求是否成功。退出清除本机凭据，保留账号/client 映射；远程撤销未确认时明确提示。
 
 独立授权来源是当前账号，不能从“用了 OpenAI SDK”推断额度来源。身份登录与订阅授权分别判断；没有 `chatgpt.tokens.use.direct` 权限不能推理。退出会撤销本应用凭据；切换账号会中止活动订阅请求，缓存身份也包含账号。订阅失败不会回退到 API Key。
 
@@ -132,7 +137,7 @@ SDK 请求超时 110 秒，后台外层上限 120 秒；关闭浮层不会取消
 
 默认使用 `gpt-6-luna`，quick 与 learn 共用用户选择，不自动升级。实际速度和质量取决于所选服务及账号；CI 使用模拟服务，不作真人服务性能承诺。
 
-代码入口：`src/content/main.mjs` 提取选区；`src/background/main.mjs` 接入认证与事件，`tasks.mjs` 负责持久任务、调度与恢复；`provider.mjs` 直连模型；`oauth.mjs` 请求凭据；`auth/service.mjs` 和 `auth/server.mjs` 管理认证；`src/shared/model.mjs` 定义提示词/schema；`store.mjs` 组织本地历史。
+代码入口：`src/content/main.mjs` 提取选区；`src/background/main.mjs` 接入认证与事件，`tasks.mjs` 负责持久任务、调度与恢复；`provider.mjs` 直连模型；`oauth.mjs` 处理浏览器登录、回调校验和持久凭据；`src/shared/model.mjs` 定义提示词/schema；`store.mjs` 组织本地历史。
 
 异步提交、失败、取消、存储和浏览器退出的边界见[架构](architecture.md)。回归在实际 Chrome 扩展中使用模拟服务；真人登录和真实两设备验证分别处理，不由模拟结果推导。
 

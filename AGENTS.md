@@ -17,7 +17,7 @@
 - Keep `extension/public-key.json` stable: it fixes extension ID `hndhiknbifkbmpebjflifdecfpcliddd` and its storage/OAuth origins. A public extension key and Google client ID are application identifiers, not secrets.
 - Google appDataFolder sync excludes credentials, tasks, appearance and site settings. Never claim a successful upload before Google acknowledges it.
 - Content scripts may request only appearance through `CR_APPEARANCE`; do not relax `TRUSTED_CONTEXTS` access to credential storage.
-- ChatGPT access tokens stay briefly in worker memory. Refresh/ID tokens stay in the origin-restricted DPAPI authentication helper; no inference forwarding, Codex use or credential logging.
+- ChatGPT token plaintext stays in worker memory. Persist credentials only as AES-GCM ciphertext in the extension-origin IndexedDB vault with its nonextractable Web Crypto key; keep this vault separate from knowledge, exports and sync. Pending authorization stays in TRUSTED_CONTEXTS-restricted chrome.storage.session. Resume valid login across browser restarts; do not replay an uncertain refresh. No native helper, inference forwarding, Codex use or credential logging.
 - Do not initiate, revoke or reset a real person's authorization for tests. Live tests are manual, optional and outside CI.
 
 ## UI

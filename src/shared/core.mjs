@@ -1,5 +1,5 @@
 export const VERSION = 1;
-export const DEFAULTS = Object.freeze({ mode: 'oauth', model: '', oauthModel:'gpt-6-luna', oauthProfileId:'', baseUrl: 'https://api.openai.com/v1', protocol: 'responses', oauthUrl: 'http://127.0.0.1:43821', rememberKey: false });
+export const DEFAULTS = Object.freeze({ mode: 'oauth', model: '', oauthModel:'gpt-6-luna', oauthProfileId:'', baseUrl: 'https://api.openai.com/v1', protocol: 'responses', rememberKey: false });
 export const norm = value => String(value ?? '').normalize('NFC').replace(/\s+/gu, ' ').trim();
 export const keyOf = value => norm(value).toLocaleLowerCase('en-US');
 export const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
