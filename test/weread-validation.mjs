@@ -86,7 +86,13 @@ async function snapshot(name){const path=join(out,name+'.png');await page.screen
 async function noToolbarOverlap(){const [a,b]=await Promise.all([page.locator('#context-reader-host').boundingBox(),page.locator('[data-wr-role="selectionToolbar"]').boundingBox()]);assert.ok(a&&b);assert.ok(a.x+a.width<=b.x||b.x+b.width<=a.x||a.y+a.height<=b.y||b.y+b.height<=a.y,'ContextReader must leave the native toolbar uncovered');}
 async function settledCard(){await page.locator('#context-reader-host').evaluate(async host=>{let last='',stable=0;for(let n=0;n<120;n++){await new Promise(requestAnimationFrame);const r=host.getBoundingClientRect(),next=[r.x,r.y,r.width,r.height].join(',');stable=next===last?stable+1:0;last=next;if(stable>=6)return;}throw new Error('Reader card geometry did not settle');});}
 async function notifyPage(){await library.evaluate(async()=>{const tabs=await chrome.tabs.query({url:'https://weread.qq.com/*'});await Promise.all(tabs.map(t=>chrome.tabs.sendMessage(t.id,{type:'CR_INDEX_CHANGED'})));chrome.runtime.sendMessage({type:'CR_LIBRARY_CHANGED'}).catch(()=>{});});}
-async function waitSaved(){await Promise.race([learningRequest,new Promise((_,reject)=>{const timer=setTimeout(()=>reject(new Error('Learning request did not reach synthetic service')),30000);timer.unref();})]);await library.waitForFunction(async()=>{const r=await chrome.runtime.sendMessage({type:'CR_SNAPSHOT'});return r.data.entries.some(e=>e.canonical==='fortune'&&e.learning.status==='ready');});await page.waitForFunction(()=>[...CSS.highlights.get('context-reader-known')||[]].some(r=>r.toString()==='fortune'));assert.equal(quickCalls,1);assert.equal(learningCalls,1);}
+async function waitSaved(){
+ await Promise.race([learningRequest,new Promise((_,reject)=>{const timer=setTimeout(()=>reject(new Error('Learning request did not reach synthetic service')),30000);timer.unref();})]);
+ // Await each RPC before testing its result, rather than a truthy Promise.
+ const deadline=Date.now()+30000;let ready=false;
+ while(Date.now()<deadline){ready=(await rpc('CR_SNAPSHOT')).entries.some(e=>e.canonical==='fortune'&&e.learning.status==='ready');if(ready)break;await new Promise(resolve=>setTimeout(resolve,25));}
+ assert.ok(ready,'the saved fortune entry must finish its learning request');await page.waitForFunction(()=>[...CSS.highlights.get('context-reader-known')||[]].some(r=>r.toString()==='fortune'));assert.equal(quickCalls,1);assert.equal(learningCalls,1);
+}
 
 try{
  context=await chromium.launchPersistentContext(join(out,'profile'),{channel:'chromium',headless:true,ignoreDefaultArgs:['--disable-extensions'],viewport:{width:1280,height:1000},deviceScaleFactor:2,args:['--load-extension='+extension,'--disable-extensions-except='+extension]});
