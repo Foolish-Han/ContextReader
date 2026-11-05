@@ -10,7 +10,7 @@
 
 ## 本地准备
 
-见 [开发指南](docs/development.md)。CI 在 Linux、macOS、Windows 运行相同检查；本机浏览器回归使用当前平台的 Playwright Chromium，Node.js 22+，依赖以 `npm ci` 和 lockfile 为准。`dist` 不入库；构建后加载根目录的 `dist`。
+见 [开发指南](docs/development.md)。CI 在 Linux、macOS、Windows 运行相同检查，并在 Ubuntu 覆盖最低 Node.js 22.22.2 和 24.15.0。本机开发使用 Node.js 22.22.2+（22.x）、24.15.0+（24.x）或 26+；浏览器回归使用当前平台的 Playwright Chromium，依赖以 `npm ci` 和 lockfile 为准。`dist` 不入库；构建后加载根目录的 `dist`。
 
 ## 分支与提交
 

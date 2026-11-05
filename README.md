@@ -76,6 +76,8 @@ API Key 使用对应服务的 API 额度。默认只保存到浏览器退出；�
 
 ## 开发与验证
 
+源码开发需要 Node.js 22.22.2+（22.x）、24.15.0+（24.x）或 26+。使用已构建的浏览器扩展无需 Node.js。
+
 ```sh
 git clone https://github.com/Foolish-Han/ContextReader.git
 cd ContextReader

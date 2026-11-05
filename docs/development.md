@@ -2,9 +2,9 @@
 
 ## 环境
 
-- 开发与自动回归：Node.js 22 或 24、npm、Git；浏览器套件使用 Playwright 当前平台的 Chromium。
+- 开发与自动回归：Node.js 22.22.2+（22.x）、24.15.0+（24.x）或 26+、npm、Git；浏览器套件使用 Playwright 当前平台的 Chromium。
 - 已构建扩展的 API Key 和 ChatGPT 登录均无需 Node.js、本机服务或平台脚本。
-- Linux、macOS、Windows 使用相同的 Node 配置、打包与测试入口；CI 在三个系统运行，无平台专用跳过项。真实 OpenAI 授权仍需手动验证。
+- Linux、macOS、Windows 使用相同的 Node 配置、打包与测试入口；CI 在三个系统运行，并在 Ubuntu 额外检查最低 Node.js 22.22.2 和 24.15.0，无平台专用跳过项。真实 OpenAI 授权仍需手动验证。
 
 ```sh
 git clone https://github.com/Foolish-Han/ContextReader.git
