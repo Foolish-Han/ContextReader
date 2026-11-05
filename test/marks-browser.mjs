@@ -19,7 +19,11 @@ async function clickFrameControl(page,frame,selector){
  const control=frame.locator(selector),record=async phase=>{const owner=await frame.frameElement();(report.pointerGeometry||=[]).push({selector,phase,parent:await page.evaluate(()=>({scrollY,viewport:{height:innerHeight,pageTop:visualViewport?.pageTop},host:document.querySelector('#context-reader-host').getBoundingClientRect().toJSON()})),iframe:await owner.evaluate(e=>e.getBoundingClientRect().toJSON()),box:await control.boundingBox(),inside:await control.evaluate(e=>{const rect=e.getBoundingClientRect(),hit=document.elementFromPoint(rect.left+rect.width/2,rect.top+rect.height/2),content=document.querySelector('.card-content');return {rect:rect.toJSON(),scrollY,rootScrollTop:document.documentElement.scrollTop,bodyScrollTop:document.body.scrollTop,contentScrollTop:content?.scrollTop,hit:hit?.outerHTML};})});};
  // Complete the cross-frame scroll before settling. A second implicit scroll
  // inside click can move the parent after its target coordinates were checked.
- await record('before-scroll');await control.scrollIntoViewIfNeeded();await settleFrame(page,frame);await record('after-scroll-and-settle');await control.click({scroll:'none'});
+ await record('before-scroll');
+ // A completed learning task can replace the result markup before input.
+ // Re-resolve only a detached scroll target; real action failures still fail.
+ for(let attempt=0;;attempt++){try{await control.scrollIntoViewIfNeeded();break;}catch(error){if(attempt>=4||!error.message.includes('Element is not attached to the DOM'))throw error;await control.waitFor({state:'visible'});}}
+ await settleFrame(page,frame);await record('after-scroll-and-settle');await control.click({scroll:'none'});
 }
 const marked=()=>[...CSS.highlights.get('context-reader-known')||[]].map(r=>({text:r.toString(),parent:r.commonAncestorContainer.nodeType===3?r.commonAncestorContainer.parentElement.id:r.commonAncestorContainer.id}));
 try{
