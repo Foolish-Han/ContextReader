@@ -13,7 +13,7 @@ $('#app').innerHTML=`<header class="app-header">${brand()}<nav><a href="library.
 <section id="oauth-fields"><div class="oauth-account" id="auth-card"></div>
 <label class="field">模型<select name="oauthModel" id="oauth-model" disabled><option value="">登录后读取可用模型</option></select><small>默认 GPT-6 Luna，优先阅读速度。</small></label>
 <div class="plan-usage"><span id="plan-state">尚未启用订阅调用</span><a href="https://chatgpt.com/settings/usage" target="_blank" rel="noopener noreferrer">管理用量</a></div>
-<details class="connection-guide oauth-guide"><summary>认证助手与凭据</summary><p>首次使用运行 <code>start-auth.cmd</code>。认证助手处理本机 OAuth 回调、凭据保护与刷新；扩展后台直接请求 OpenAI。</p><p>长期凭据由 Windows 用户账户加密保存，不进入网页、浏览器存储或知识库备份。</p></details></section>
+<details class="connection-guide oauth-guide"><summary>登录与凭据</summary><p>点击 Continue with ChatGPT，在打开的 OpenAI 页面完成登录和订阅授权即可，无需运行脚本。</p><p>登录凭据加密保存在当前浏览器的扩展资料中，重启后自动保持登录，不进入网页、备份或云端同步。只有主动退出、授权失效或刷新异常时才需重新登录。</p></details></section>
 <section id="api-fields"><label class="field">服务地址<input name="baseUrl" type="url" value="${e(settings.baseUrl)}" spellcheck="false" placeholder="https://api.openai.com/v1"></label>
 <label class="field">API Key<input name="apiKey" type="password" autocomplete="off" placeholder="${settings.hasApiKey?'已保存，留空保持不变':'填写 API Key'}"></label>
 <label class="check-field"><input type="checkbox" name="rememberKey" ${settings.rememberKey?'checked':''}>保存在此设备<small>关闭后，密钥仅保留到浏览器退出。</small></label>
@@ -28,7 +28,7 @@ function syncKeyField(){const input=$('[name=apiKey]');input.value='';input.plac
 function syncMode(){const oauth=mode()==='oauth';$('#oauth-fields').hidden=!oauth;$('#api-fields').hidden=oauth;}
 function label(profile){const identity=profile.identity?.email;return identity&&identity!==profile.label?identity+'（'+profile.label+'）':profile.label;}
 function renderAuth(){
- const s=connection.session||{},pending=!!attemptId,connected=s.status==='connected',selected=connection.profiles.find(p=>p.id===s.profileId);
+ const s=connection.session||{},pending=!!attemptId,connected=s.status==='connected',selected=connection.profiles.find(p=>p.id===(s.profileId||settings.oauthProfileId));
  $('#auth-card').innerHTML=pending?`<div class="oauth-title"><span class="status-dot is-pending"></span><h2>正在等待 OpenAI 授权</h2></div><p>请在打开的页面完成登录，并允许语境使用 ChatGPT 订阅。</p><button type="button" class="text-button" id="cancel-auth">取消本次登录</button>`:
  `<div class="oauth-title"><span class="status-dot ${connected&&s.sharing?'is-connected':'is-pending'}"></span><h2>${connected?'ChatGPT 已登录':'连接 ChatGPT'}</h2></div>${connected?`<p class="account-identity">${e(s.identity?.email||s.identity?.name||s.profileLabel||'ChatGPT 账号')}</p><p>${s.sharing?'订阅额度已启用':'尚未授权订阅额度'}</p>`:'<p>使用 ChatGPT 订阅额度进行解释。</p>'}
  ${!connected?`<button type="button" class="button primary chatgpt-signin" id="sign-in"><img src="icons/chatgpt.svg" alt="" width="21" height="21">Continue with ChatGPT</button>`:!s.sharing?'<button type="button" class="button primary" id="enable-plan">启用订阅额度</button>':''}
@@ -36,7 +36,7 @@ function renderAuth(){
  <div class="oauth-tools">${connected?'<button type="button" class="text-button" id="reconnect">重新登录</button><button type="button" class="text-button" id="logout">退出此账号</button>':''}${connection.profiles.length?'<button type="button" class="text-button" id="add-account">添加账号</button>':''}${connected&&s.sharing?'<button type="button" class="text-button" id="models-refresh">刷新模型</button>':''}</div>`;
  $('#plan-state').textContent=connected&&s.sharing?'使用 ChatGPT 订阅':'尚未启用订阅调用';$('#plan-state').classList.toggle('is-enabled',connected&&s.sharing);
  $('#sign-in')?.addEventListener('click',()=>startLogin(selected?.id));$('#enable-plan')?.addEventListener('click',()=>startLogin(s.profileId,true));$('#reconnect')?.addEventListener('click',()=>startLogin(s.profileId));$('#add-account')?.addEventListener('click',()=>startLogin());
- $('#cancel-auth')?.addEventListener('click',async()=>{clearTimeout(pollTimer);await rpc('CR_OAUTH_CANCEL',{attemptId});attemptId='';await refreshAuth();flash('本次登录已取消。');});
+ $('#cancel-auth')?.addEventListener('click',async()=>{try{clearTimeout(pollTimer);await rpc('CR_OAUTH_CANCEL',{attemptId});attemptId='';await refreshAuth();flash('本次登录已取消。');}catch(error){flash(error.message,true);}});
  $('#models-refresh')?.addEventListener('click',()=>refreshModels());
  $('#profile-picker')?.addEventListener('change',async event=>{try{working=true;const result=await rpc('CR_OAUTH_SELECT',{profileId:event.target.value});connection=result;models=result.models;settings=result.settings;renderAuth();renderModels();flash(result.catalogError||'已切换账号。',!!result.catalogError);}catch(error){flash(error.message,true);}finally{working=false;}});
  $('#logout')?.addEventListener('click',async()=>{if(working)return;working=true;try{await rpc('CR_OAUTH_LOGOUT');models=[];await refreshAuth();renderModels();flash('已退出此账号。');}catch(error){await refreshAuth();flash(error.message,true);}finally{working=false;}});

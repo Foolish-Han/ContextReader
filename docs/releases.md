@@ -9,18 +9,20 @@
 ## 发布步骤
 
 1. 更新 `package.json` 和 lockfile 的同一个版本，以及 `CHANGELOG.md`。
-2. 在 Windows 从干净检出执行：
+2. 在任一支持 Node.js 的系统从干净检出执行：
 
-   ```powershell
+   ```sh
    npm ci
    npm run build
    npm test
    npm run test:auth
    npm run verify:repo
    npm run test:ui
+   npm run test:marks
    npm run test:cloud
    npm run test:async
    npm run test:auto
+   npm run test:oauth
    ```
 
 3. 合并并确认 main 的 CI 为绿色。对该提交创建 `vX.Y.Z` 标签并推送。
@@ -29,13 +31,13 @@
 
 ## 本地打包
 
-```powershell
+```sh
 npm run package
 ```
 
-打包只从 Git 受控且未修改的源文件与生成的 `dist`/认证运行时收录资料。私人文档、旧截图、测试 profiles、浏览器二进制、日志、密钥和旧 ZIP 不会因为存在于工作目录就被复制进发行包。
+打包只从 Git 受控且未修改的源文件与生成的根目录 `dist`收录资料。私人文档、旧截图、测试 profiles、浏览器二进制、日志、密钥和旧 ZIP 不会因为存在于工作目录就被复制进发行包。
 
-产物在忽略的 `release/` 下：`context-reader-X.Y.Z.zip` 与 `.sha256`。包含第三方完整许可及安装说明。公开 Client ID 和扩展公钥必须与构建一致；变更固定扩展 ID 需要单独迁移设计。
+产物在忽略的 `release/` 下：`context-reader-X.Y.Z.zip` 与 `.sha256`。包含第三方完整许可及安装说明。ZIP 使用 Node 与 fflate 生成，不依赖 PowerShell 或系统 ZIP 程序。公开 Client ID 和扩展公钥必须与构建一致；变更固定扩展 ID 需要单独迁移设计。
 
 发布权限仅在标签发布 job 中授予 `contents: write`。普通 CI 只读，不使用真人 API Key、OAuth 登录或 Google 授权。
 

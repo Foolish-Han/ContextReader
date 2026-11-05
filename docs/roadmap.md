@@ -22,9 +22,9 @@
 
 确认 OAuth Testing/Production、允许的扩展 ID 与其他账号可用性，整理发布者清单。评估 Chrome Web Store 所需材料、权限说明和 ID 迁移。当前没有上架声明。
 
-### 认证助手兼容性 [#5](https://github.com/Foolish-Han/ContextReader/issues/5)
+### 浏览器内 ChatGPT 授权 [#5](https://github.com/Foolish-Han/ContextReader/issues/5)
 
-梳理 Windows 外的凭据保护与回调要求，决定 macOS/Linux 适配方案，再实现和验证。API Key 路径与订阅助手分别说明平台边界。
+已移除平台认证助手与启动脚本，使用浏览器内回调及加密持久凭据。重启恢复和过期刷新通过实际 Chrome / 合成服务回归。完成真实 Chrome 与合成 OAuth 服务回归后，由本人手动验证真实 OpenAI 注册、订阅授权、重登录、模型目录与解释。模拟验证不代表真人服务验收。
 
 ## 不默认扩展的范围
 

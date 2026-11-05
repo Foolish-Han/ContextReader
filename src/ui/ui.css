@@ -321,3 +321,15 @@ dialog p {font-size:var(--text-body);line-height:1.8;color:var(--muted);margin-t
 @supports not (backdrop-filter:blur(1px)){.reading-card,.library-detail,.app-header{background:var(--paper)}}
 @media(prefers-reduced-transparency:reduce){.reading-card,.library-detail,.app-header{background:var(--paper);backdrop-filter:none}}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+
+/* Annotation meaning is repeated in text, not left to color alone. */
+.boundary-status {display:flex;align-items:center;gap:8px;width:fit-content;padding:6px 10px;border-radius:var(--radius-inner);font-size:var(--text-small);font-weight:600;margin:0 0 16px}
+.boundary-status svg {width:18px;height:18px;flex-shrink:0}
+.mark-legend {margin-top:20px;border-top:.5px solid var(--line);padding-top:14px;font-size:var(--text-small)}
+.mark-legend summary {cursor:pointer;color:var(--ink);font-weight:550}
+.mark-legend dl {margin-top:14px;display:grid;gap:12px}
+.mark-legend dl>div {display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;align-items:baseline}
+.mark-legend dt {line-height:1.8}
+.mark-legend dd {margin:0;color:var(--muted)}
+
+.expression-kind,.ipa-unavailable {font:400 var(--text-small)/1.5 var(--sans);color:var(--muted)}

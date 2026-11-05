@@ -19,7 +19,7 @@
 
 1. 在 Google Cloud 项目启用 Drive API，配置同意屏幕、受众和测试用户。
 2. 创建 Chrome 扩展类型 OAuth Client，核对应用 ID。
-3. 本地运行 `configure-google.cmd`，填写公开 Client ID；或直接更新 `extension/google-oauth.json`。
+3. 本地运行 `npm run configure:google -- --client-id CLIENT_ID` 写入公开配置。另有已加载副本时，用 `--extension-dir /absolute/path/to/dist` 明确指定；不自动扫描 Chrome 资料，也不修改其 Preferences。
 4. 重新构建，重新加载扩展并刷新设置页。连接诊断应显示当前版本、扩展 ID 和 Client ID，再本人测试连接。
 5. 发布前通过 `verify:repo` 与打包检查。不能发布 manifest 与配置不一致的构建。
 

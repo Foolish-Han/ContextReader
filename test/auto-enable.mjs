@@ -1,5 +1,5 @@
 import {chromium} from 'playwright';
-import {readFile,writeFile,readdir,cp,mkdir} from 'node:fs/promises';
+import {readFile,writeFile,cp,mkdir} from 'node:fs/promises';
 import {resolve,join} from 'node:path';
 import http from 'node:http';
 import assert from 'node:assert/strict';
@@ -9,10 +9,10 @@ const manifest=JSON.parse(await readFile(join(extension,'manifest.json'),'utf8')
 const report={version:manifest.version,realBrowser:true,realLlm:false,checks:[],modelRequests:0};
 const pass=name=>{report.checks.push(name);console.log('PASS '+name);};
 const servers=[];async function site(){const server=http.createServer((_req,res)=>{res.writeHead(200,{'Content-Type':'text/html; charset=utf-8'});res.end('<!doctype html><html><body><article style="max-width:650px;margin:80px auto;font:24px/2 Georgia"><h1>A reading test</h1><p id="text">Skills can be honed through practice.</p><p id="unknown">An unfamiliar expression.</p></article></body></html>');});await new Promise(r=>server.listen(0,'127.0.0.1',r));servers.push(server);return 'http://127.0.0.1:'+server.address().port;}
-const first=await site(),other=await site(),folder=(await readdir('.local/browsers')).filter(n=>/^chromium-\d+$/.test(n)).sort().at(-1);
+const first=await site(),other=await site();
 let context,worker,popup;
 async function guardModelRequests(){await worker.evaluate(()=>{const original=globalThis.fetch;globalThis.__unexpectedModelCalls=0;globalThis.fetch=function(...args){if(String(args[0]?.url||args[0]).includes('/responses')){globalThis.__unexpectedModelCalls++;throw new Error('Model inference is forbidden in the auto-enable test');}return original.apply(this,args);};});}
-async function launch(){context=await chromium.launchPersistentContext(profile,{executablePath:join(root,'.local/browsers',folder,'chrome-win64/chrome.exe'),channel:'chromium',ignoreDefaultArgs:['--disable-extensions'],headless:true,viewport:{width:1100,height:800},args:[`--load-extension=${extension}`,`--disable-extensions-except=${extension}`]});worker=context.serviceWorkers()[0]||await context.waitForEvent('serviceworker');await guardModelRequests();}
+async function launch(){context=await chromium.launchPersistentContext(profile,{channel:'chromium',ignoreDefaultArgs:['--disable-extensions'],headless:true,viewport:{width:1100,height:800},args:[`--load-extension=${extension}`,`--disable-extensions-except=${extension}`]});worker=context.serviceWorkers()[0]||await context.waitForEvent('serviceworker');await guardModelRequests();}
 const rpc=(page,type,payload={})=>page.evaluate(async({type,payload})=>{const r=await chrome.runtime.sendMessage({type,payload});if(!r.ok)throw new Error(r.error);return r.data;},{type,payload});
 async function tabId(page){return worker.evaluate(async url=>{const tabs=await chrome.tabs.query({});const tab=tabs.find(t=>t.url===url)||(!/^https?:/.test(url)&&tabs.find(t=>t.active));if(!tab)throw new Error('Could not identify the test tab');return tab.id;},page.url());}
 async function state(page){return worker.evaluate(async id=>chrome.tabs.sendMessage(id,{type:'CR_PAGE_STATE'}),await tabId(page));}

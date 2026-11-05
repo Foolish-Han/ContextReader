@@ -3,8 +3,9 @@ import {digest,keyOf,norm,safeUrl} from './core.mjs';
 const FIELDS={
  entries:['canonical','aliases','kind','ipa','ipaUK','ipaUS','partOfSpeech','baseMeanings','note','paused','edited','learning','createdAt'],
  contexts:['entryKey','hash','hashAliases','selected','surface','sentence','context','before','after','meaning','explanation','uncertainty','source','provider','createdAt'],
- snippets:['hash','text','context','sentence','meaning','explanation','uncertainty','candidates','source','provider','createdAt']
+ snippets:['hash','text','context','sentence','before','after','meaning','explanation','uncertainty','candidates','source','provider','createdAt']
 };
+const optionalField=(group,name)=>group==='snippets'&&['before','after'].includes(name);
 const text=(v,n=4000)=>String(v??'').slice(0,n);
 const source=v=>({url:safeUrl(v?.url),title:text(v?.title,240)});
 const provider=v=>({mode:text(v?.mode,60),model:text(v?.model,160),service:text(v?.service,160)});
@@ -31,8 +32,8 @@ export async function cloudContextKey(canonical,c){return digest(JSON.stringify(
 async function flatten(data){const records=new Map(),entryKeys=new Map(data.entries.map(e=>[e.id,keyOf(e.canonical)]));
  for(const group of Object.keys(FIELDS))for(const raw of data[group]){
   const canonical=group==='entries'?keyOf(raw.canonical):entryKeys.get(raw.entryId);if(group==='contexts'&&!canonical)continue;
-  const key=group==='entries'?canonical:group==='contexts'?await cloudContextKey(canonical,raw):await digest(JSON.stringify([raw.text,raw.context,raw.sentence,safeUrl(raw.source?.url),provider(raw.provider)]));
-  const id=group+':'+(group==='entries'?await digest(key):key),values={};for(const name of FIELDS[group])values[name]=field(group,name,name==='entryKey'?canonical:name==='hashAliases'?[...(raw.hashAliases||[]),raw.hash].filter(Boolean):raw[name]);
+  const key=group==='entries'?canonical:group==='contexts'?await cloudContextKey(canonical,raw):await digest(JSON.stringify([raw.text,raw.context,raw.sentence,safeUrl(raw.source?.url),provider(raw.provider),...(Object.hasOwn(raw,'before')&&Object.hasOwn(raw,'after')?[norm(raw.before),norm(raw.after)]:[])]));
+  const id=group+':'+(group==='entries'?await digest(key):key),values={};for(const name of FIELDS[group]){if(optionalField(group,name)&&!Object.hasOwn(raw,name))continue;values[name]=field(group,name,name==='entryKey'?canonical:name==='hashAliases'?[...(raw.hashAliases||[]),raw.hash].filter(Boolean):raw[name]);}
   records.set(id,{id,group,key,values,localId:raw.id});
  }return records;
 }
@@ -62,7 +63,7 @@ export function validateCloud(input){
  for(const raw of input.documents){if(!raw||!Object.hasOwn(FIELDS,raw.group)||typeof raw.id!=='string'||!new RegExp('^'+raw.group+':[a-f0-9]{64}$').test(raw.id)||typeof raw.key!=='string'||raw.key.length>160||typeof raw.present?.value!=='boolean'||!validStamp(raw.present.stamp)||!raw.fields||typeof raw.fields!=='object'||raw.reset&&!validStamp(raw.reset))throw new Error('云端有无效记录，未覆盖本机数据。');
   const doc={id:raw.id,group:raw.group,key:raw.key,present:{value:raw.present.value,stamp:raw.present.stamp},fields:{},...(raw.reset?{reset:raw.reset}:!raw.present.value?{reset:raw.present.stamp}:{})};
   for(const [name,register] of Object.entries(raw.fields)){if(!FIELDS[raw.group].includes(name)||!register||!validStamp(register.stamp))throw new Error('云端字段校验失败，未覆盖本机数据。');doc.fields[name]={value:field(raw.group,name,register.value),stamp:register.stamp,...(register.manual&&(name==='baseMeanings'||name==='note')?{manual:true}:{})};}
-  if(doc.present.value&&FIELDS[doc.group].some(name=>!doc.fields[name]))throw new Error('云端记录不完整，未覆盖本机数据。');documents.push(doc);
+  if(doc.present.value&&FIELDS[doc.group].some(name=>!optionalField(doc.group,name)&&!doc.fields[name]))throw new Error('云端记录不完整，未覆盖本机数据。');documents.push(doc);
  }return documents;
 }
 export async function mergeCloud(d,envelopes){const m=meta(d);let changed=false;

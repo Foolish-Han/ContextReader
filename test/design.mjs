@@ -1,5 +1,5 @@
 import {chromium} from 'playwright';
-import {readFile,writeFile,readdir,cp,mkdir} from 'node:fs/promises';
+import {readFile,writeFile,cp,mkdir} from 'node:fs/promises';
 import {resolve,join} from 'node:path';
 import assert from 'node:assert/strict';
 import {extensionId} from '../src/shared/extension-id.mjs';
@@ -8,7 +8,7 @@ const root=resolve('.'),out=join(root,'test-results','design-'+Date.now()),exten
 const manifest=JSON.parse(await readFile(join(extension,'manifest.json'),'utf8'));manifest.host_permissions.push('https://www.autodidacts.io/*');await writeFile(join(extension,'manifest.json'),JSON.stringify(manifest));const origin='chrome-extension://'+extensionId(manifest.key);
 // An isolated fresh profile prevents old unpacked-extension preferences from
 // loading a prior build in place of this test's --load-extension target.
-const folder=(await readdir('.local/browsers')).filter(n=>/^chromium-\d+$/.test(n)).sort().at(-1);const context=await chromium.launchPersistentContext(join(out,'profile'),{executablePath:join(root,'.local/browsers',folder,'chrome-win64/chrome.exe'),channel:'chromium',ignoreDefaultArgs:['--disable-extensions'],headless:true,viewport:{width:1360,height:920},args:[`--disable-extensions-except=${extension}`,`--load-extension=${extension}`]});
+const context=await chromium.launchPersistentContext(join(out,'profile'),{channel:'chromium',ignoreDefaultArgs:['--disable-extensions'],headless:true,viewport:{width:1360,height:920},args:[`--disable-extensions-except=${extension}`,`--load-extension=${extension}`]});
 await context.route('https://www.autodidacts.io/**',route=>route.fulfill({contentType:'text/html; charset=utf-8',path:join(root,'test/fixtures/reading.html')}));
 const report={fontErrors:[],version:manifest.version,llmCalls:0,fixture:'controlled article from the user quote; tacitly learning fixture from the user screenshot expanded for overflow testing; no live LLM or credentials',checks:[],screenshots:[],metrics:[]};context.on('page',p=>{p.on('console',m=>{if(m.type()==='error'&&/font|woff/i.test(m.text()))report.fontErrors.push(m.text());});p.on('requestfailed',r=>{if(/font|woff/i.test(r.url()))report.fontErrors.push(r.url()+' '+r.failure()?.errorText);});});const pass=(name,detail)=>{report.checks.push({name,detail});console.log('PASS '+name);};
 const rpc=(page,type,payload={})=>page.evaluate(({type,payload})=>new Promise((resolve,reject)=>{const port=chrome.runtime.connect({name:'cr-rpc'}),id=crypto.randomUUID();port.onMessage.addListener(m=>{if(m.id!==id||m.progress)return;port.disconnect();m.ok?resolve(m.data):reject(new Error(m.error));});port.postMessage({id,type,payload});}),{type,payload});
