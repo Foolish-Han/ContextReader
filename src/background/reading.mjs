@@ -7,6 +7,10 @@ export function createReadingController(api){
  const disabled=async()=>{const saved=(await api.storage.local.get(READING_EXCEPTIONS))[READING_EXCEPTIONS];return new Set((Array.isArray(saved)?saved:[]).map(webOrigin).filter(Boolean));};
  async function state(url){const origin=webOrigin(url);return {origin,supported:!!origin,enabled:!!origin&&!(await disabled()).has(origin)};}
  async function ensure(tabId){const tab=await api.tabs.get(tabId),policy=await state(tab.url);if(!policy.supported)throw new Error('此页面不支持语境，请打开普通网页。');
+  if(policy.origin==='https://weread.qq.com'){
+   await api.scripting.executeScript({target:{tabId},world:'MAIN',files:['weread-capture.js']});
+   await api.scripting.executeScript({target:{tabId},files:['weread-bootstrap.js']});
+  }
   await api.scripting.executeScript({target:{tabId},files:['content.js']});
   await api.tabs.sendMessage(tabId,{type:'CR_READING_CHANGED',enabled:policy.enabled});return policy;
  }

@@ -1,127 +1,121 @@
-// Opt-in feasibility spike. The helper is injected only into an isolated test
-// profile; neither it nor the live WeRead request belongs to the extension/CI.
-// npm run build && npm run test:weread [-- --live]
+// Production WeRead adapter regression. The fixture and optional public preview
+// use a fresh browser profile and a synthetic model service; no real login or
+// native note submission is performed. npm run build && npm run test:weread
 import {chromium} from 'playwright';
 import {cp,mkdir,readFile,writeFile} from 'node:fs/promises';
 import {join,resolve} from 'node:path';
 import http from 'node:http';
 import assert from 'node:assert/strict';
 import {extensionId} from '../src/shared/extension-id.mjs';
-import {installWeReadPrototype} from './helpers/weread-prototype.mjs';
 
 const live=process.argv.includes('--live');
-const out=resolve('test-results/weread-'+(live?'live-':'fixture-')+Date.now());
-const extension=join(out,'extension');
+const out=resolve('test-results/weread-'+(live?'live-':'fixture-')+Date.now()),extension=join(out,'extension');
 await mkdir(out,{recursive:true});await cp('dist',extension,{recursive:true});
 const manifest=JSON.parse(await readFile(join(extension,'manifest.json'),'utf8'));
 const origin='chrome-extension://'+extensionId(manifest.key);
-const report={prototypeOnly:true,realWeRead:live,realLlm:false,personalProfile:false,checks:[],screenshots:[],errors:[],limitations:[
- 'Experimental helper is not included in the shipped extension.',
- 'The transparent layer replaces WeRead text-selection gestures over captured text.',
- 'Context is limited to captured visible canvas text, not a verified whole paragraph.',
- 'Validation covers readable 2D fillText rendering, not image/PDF/WebGL or obfuscated glyphs.'
+const fixtureUrl='https://weread.qq.com/web/reader/context-reader-fixture';
+const previewUrl='https://weread.qq.com/web/reader/b9f329705b6af5b9ffcf076k06932ec027e069059b7e512';
+const paragraph='It is a truth universally acknowledged, that a single man in possession of a good fortune, must be in want of a wife. The whole paragraph continues beyond the visible page with its original ending.';
+const wrappedParagraph='A domain-agnostic reader can follow a phrase across wrapped lines, preserving its original meaning.';
+const report={productionAdapter:true,realWeRead:live,realLlm:false,personalProfile:false,checks:[],screenshots:[],errors:[],limitations:[
+ 'The live preview uses public, unauthenticated reading only and a synthetic model response.',
+ 'Real account note persistence and authenticated editor behavior require manual acceptance.',
+ 'Readable 2D fillText is covered; image-only, WebGL, PDF and obfuscated glyph rendering are not represented by this fixture.'
 ]};
 const pass=name=>{report.checks.push(name);console.log('PASS '+name);};
-let calls=0;
-let learningResponded;
-const learningResponse=new Promise(resolve=>{learningResponded=resolve;});
-const submitted=[];
-const fixture=`<!doctype html><meta charset="utf-8"><title>WeRead synthetic canvas reader</title>
-<style>body{margin:0;background:#202020;color:#eee;font:16px system-ui}header{padding:20px}main{display:flex;gap:40px;padding:20px 80px}canvas{width:440px;height:570px;background:#181818}button{font:inherit;margin:20px}</style>
-<header>Synthetic reader: selectable canvas text</header><main><canvas width="880" height="1140"></canvas><canvas width="880" height="1140"></canvas></main><button id="next">Next page</button>
+const submitted=[];let calls=0,quickCalls=0,learningCalls=0,context,page,library,learningObserved;
+const learningRequest=new Promise(resolve=>{learningObserved=resolve;});
+const fixture=`<!doctype html><meta charset="utf-8"><title>WeRead native-selection fixture</title>
+<style>
+body{margin:0;background:#fafafa;color:#242424;font:16px system-ui}header{padding:14px 24px;display:flex;gap:16px;align-items:center}button,a,textarea{font:inherit}button{padding:8px}main.readerChapterContent{margin:8px 24px}.renderTargetCanvasContainer{display:flex;gap:32px;flex-wrap:wrap}canvas{width:440px;height:570px;max-width:calc(100vw - 48px);background:#fff;border-radius:8px}#preRenderContainer{position:absolute;left:-10000px;top:0;width:440px}.wr-translation{display:none}.reader_toolbar_container{position:fixed;display:flex;width:330px;height:56px;z-index:30;background:#303236;color:white;border-radius:10px;box-shadow:0 3px 14px #0003}.reader_toolbar_container button{width:110px;border:0;background:none;color:inherit}.wr_selection{position:fixed;pointer-events:none;background:#478ce84a;z-index:12}.fixture-native-saved-mark{position:fixed;pointer-events:none;border-bottom:2px solid #d7a000;z-index:11}.reader_float_review_writer{position:fixed;inset:180px 24px auto;z-index:40;background:#fff;color:#242424;padding:20px;box-shadow:0 0 0 9999px #0005}.reader_float_review_writer[hidden]{display:none}.reader_float_review_writer textarea{display:block;width:calc(100% - 20px);min-height:100px;margin:12px 0}.dark{background:#17191b;color:#eceef0}.dark canvas{background:#111315}.dark .reader_float_review_writer{background:#272a2d;color:#eceef0}
+</style>
+<header><button id="next">Next page</button><button id="redraw">Redraw</button><button id="reset">Reset bitmap</button><a id="fixture-link" href="#native-link">Native link</a><span id="native-count">Native marks: 0</span></header>
+<main class="readerChapterContent"><div class="renderTargetCanvasContainer"><canvas width="880" height="1140"></canvas><canvas width="880" height="1140"></canvas></div></main>
+<div id="preRenderContainer" class="preRenderContainer"><div id="preRenderContent" class="preRenderContent"></div></div><div id="native-selection"></div>
+<div class="reader_float_review_writer" hidden><label>Native thought draft<textarea class="reader_float_review_writer_editor_textarea" placeholder="写下这一刻的想法"></textarea></label><button id="close-native-writer">Close native draft</button></div>
 <script>
-window.nativeSelections=0;document.addEventListener('mousedown',()=>window.nativeSelections++);document.addEventListener('selectstart',event=>event.preventDefault());
-let next=false;
-function paint(){document.querySelectorAll('canvas').forEach((c,index)=>{const ctx=c.getContext('2d');ctx.clearRect(0,0,c.width,c.height);ctx.setTransform(2,0,0,2,0,0);ctx.font='20px Georgia';ctx.textBaseline='middle';ctx.fillStyle='#eee';
- const lines=next?['A different page with no saved expression.']:index?['A second fortune appears here.','The word art must not match partial.']:['It is a truth universally acknowledged,','that a single man in possession of a good','fortune, must be in want of a wife.','A domain-agnostic reader can follow','a phrase across wrapped lines.'];
- lines.forEach((line,row)=>{let x=28;for(const glyph of line){ctx.fillText(glyph,x,60+row*38);x+=ctx.measureText(glyph).width;}});});}
-requestAnimationFrame(paint);document.querySelector('#next').onclick=()=>{next=!next;paint();};
+const paragraphs=${JSON.stringify([paragraph,wrappedParagraph,'A second fortune appears here.'])};
+window.fixture={nativeStarts:0,nativeMarks:0,nativeThoughts:0,glyphs:[],next:false};let dragStart=null,lastSelected=[];
+function dismissNative(){document.getElementById('native-selection').replaceChildren();document.querySelector('[data-wr-role="selectionToolbar"]')?.remove();lastSelected=[];}
+function nativeRect(g){const r=g.canvas.getBoundingClientRect(),rx=r.width/440,ry=r.height/570;return {left:r.left+g.x*rx,top:r.top+(g.y-12.5)*ry,right:r.left+(g.x+g.width)*rx,bottom:r.top+(g.y+12.5)*ry,width:g.width*rx,height:25*ry};}
+function hit(point){return window.fixture.glyphs.findIndex(g=>{const r=nativeRect(g);return point.x>=r.left-.1&&point.x<r.right+.1&&point.y>=r.top-3&&point.y<=r.bottom+3;});}
+function selectedBetween(first,last){const a=hit(first),b=hit(last);if(a<0||b<0)return [];const x=Math.min(a,b),y=Math.max(a,b);if(window.fixture.glyphs[x].canvas!==window.fixture.glyphs[y].canvas)return [];return window.fixture.glyphs.slice(x,y+1);}
+function selectionRects(glyphs){const rows=[];for(const g of glyphs){const r=nativeRect(g),prior=rows.at(-1);if(prior&&Math.abs(prior.top-r.top)<1&&prior.canvas===g.canvas)prior.right=r.right;else rows.push({...r,canvas:g.canvas});}return rows.map(r=>({left:r.left+2,top:r.top,width:r.right-r.left,height:r.height}));}
+function showNative(glyphs){dismissNative();if(!glyphs.length)return;lastSelected=glyphs;const rects=selectionRects(glyphs),selection=document.getElementById('native-selection');for(const r of rects){const e=document.createElement('div');e.className='wr_selection';Object.assign(e.style,{left:r.left+'px',top:r.top+'px',width:r.width+'px',height:r.height+'px'});selection.append(e);}const menu=document.createElement('div');menu.className='reader_toolbar_container';menu.dataset.wrRole='selectionToolbar';menu.style.left=Math.max(8,Math.min(innerWidth-338,rects[0].left-100))+'px';menu.style.top=Math.max(8,rects[0].top-72)+'px';menu.innerHTML='<button class="toolbarItem underlineBg">马克笔</button><button class="toolbarItem review">写想法</button><button class="toolbarItem wr_copy">复制</button>';menu.querySelector('.underlineBg').onclick=()=>{window.fixture.nativeMarks++;document.getElementById('native-count').textContent='Native marks: '+window.fixture.nativeMarks;for(const r of rects){const e=document.createElement('div');e.className='fixture-native-saved-mark';Object.assign(e.style,{left:r.left+'px',top:r.top+'px',width:r.width+'px',height:r.height+'px'});document.body.append(e);}dismissNative();};menu.querySelector('.review').onclick=()=>{window.fixture.nativeThoughts++;menu.remove();document.querySelector('.reader_float_review_writer').hidden=false;document.querySelector('textarea').focus();};menu.querySelector('.wr_copy').onclick=()=>{window.fixture.copySelected=lastSelected.map(g=>g.text).join('');dismissNative();};document.body.append(menu);}
+document.addEventListener('selectstart',event=>event.preventDefault());
+document.addEventListener('mousedown',event=>{if(event.target.closest('canvas')){window.fixture.nativeStarts++;dragStart={x:event.clientX,y:event.clientY};}else if(!event.target.closest('[data-wr-role="selectionToolbar"],.reader_float_review_writer,#context-reader-host')){dragStart=null;dismissNative();}});
+document.addEventListener('mouseup',event=>{if(!dragStart)return;const first=dragStart;dragStart=null;showNative(selectedBetween(first,{x:event.clientX,y:event.clientY}));});
+document.getElementById('close-native-writer').onclick=()=>{document.querySelector('.reader_float_review_writer').hidden=true;dismissNative();};
+async function paint(){dismissNative();window.fixture.glyphs=[];const source=document.getElementById('preRenderContent');const texts=window.fixture.next?['A different page with no saved expression.']:paragraphs;const stale=document.createElement('p');stale.dataset.wrCo='100';stale.textContent=paragraphs[0].replace('original ending.','OLD_STALE_ENDING');source.replaceChildren(stale);source.replaceChildren(...texts.map((text,index)=>{const p=document.createElement('p');p.dataset.wrCo=String(100+index*1000);let co=101+index*1000;for(const ch of text){const span=document.createElement('span');span.dataset.wrId='layout';span.dataset.wrRole='text';span.dataset.wrCo=String(co++);span.textContent=ch;p.append(span);}return p;}));const hidden=document.createElement('p');hidden.className='wr-translation';hidden.dataset.wrCo='99999';hidden.textContent='NATIVE_HIDDEN_TRANSLATION must never become explanation context';source.append(hidden);await Promise.resolve();source.replaceChildren();document.querySelectorAll('canvas').forEach((canvas,index)=>{const ctx=canvas.getContext('2d');ctx.setTransform(1,0,0,1,0,0);ctx.clearRect(0,0,canvas.width,canvas.height);ctx.setTransform(2,0,0,2,0,0);ctx.font='20px Georgia';ctx.textBaseline='middle';ctx.fillStyle=document.body.classList.contains('dark')?'#eceef0':'#242424';const lines=window.fixture.next?['A different page with no saved expression.']:index?['A second fortune appears here.']:['It is a truth universally acknowledged,','that a single man in possession of a good','fortune, must be in want of a wife.','A domain-agnostic reader can follow','a phrase across wrapped lines.'];lines.forEach((line,row)=>{let x=28;for(const text of line){ctx.fillText(text,x,60+row*38);const width=ctx.measureText(text).width;window.fixture.glyphs.push({canvas,text,x,y:60+row*38,width});x+=width;}});});}
+window.paint=paint;document.getElementById('next').onclick=()=>{window.fixture.next=!window.fixture.next;paint();};document.getElementById('redraw').onclick=paint;document.getElementById('reset').onclick=()=>{dismissNative();for(const c of document.querySelectorAll('canvas'))c.width=c.width;};document.addEventListener('DOMContentLoaded',()=>setTimeout(paint,100));
 </script>`;
+
 const server=http.createServer(async(req,res)=>{
- if(req.method==='GET'){res.writeHead(200,{'Content-Type':'text/html;charset=utf-8'});res.end(fixture);return;}
+ if(req.method==='OPTIONS'){res.writeHead(204,{'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'*'});res.end();return;}
+ if(req.method==='GET'){res.writeHead(200,{'Content-Type':'application/json'});res.end(JSON.stringify({data:[{id:'fixture'}]}));return;}
  let body='';for await(const part of req)body+=part;
  try{
   const input=JSON.parse(body),learning=input.text?.format?.type==='json_object';
   const payload=JSON.parse(input.input.slice(input.input.indexOf('{')));calls++;
-  if(!learning)submitted.push(payload);
+  if(learning){learningCalls++;learningObserved();}else{quickCalls++;submitted.push(payload);}
   const selected=payload.selected||'fortune';
-  const data=learning?{usage:'仅用于验证的学习资料',memory:'合成记忆',etymology:'',etymologySource:'',examples:[{english:'A small fortune.',chinese:'一笔财富。'},{english:'Good fortune.',chinese:'好运。'}]}:{kind:payload.kind,expression:{canonical:selected,surface:selected,kind:'word',ipaUK:'',ipaUS:'',partOfSpeech:'名词',baseMeanings:['合成测试释义'],meaning:'合成测试语境义',note:'本地模拟响应，不代表真实模型质量。'},meaning:'用于验证划词流程的合成解释。',explanation:'这是本地测试服务的响应。',uncertainty:'',candidates:[]};
-  res.writeHead(200,{'Content-Type':'text/event-stream'});res.end('data: '+JSON.stringify({type:'response.output_text.delta',delta:JSON.stringify(data)})+'\n\ndata: '+JSON.stringify({type:'response.completed',response:{usage:{input_tokens:1,output_tokens:1}}})+'\n\n');
-  if(learning)learningResponded();
+  const data=learning?{usage:'仅用于验证的学习资料',memory:'合成记忆',etymology:'',etymologySource:'',examples:[{english:'A small fortune.',chinese:'一笔财富。'},{english:'Good fortune.',chinese:'好运。'}]}:{kind:payload.kind,expression:{canonical:selected,surface:selected,kind:selected.includes(' ')?'phrase':'word',ipaUK:'',ipaUS:'',partOfSpeech:'名词',baseMeanings:['合成测试释义'],meaning:'合成测试语境义',note:'本地模拟响应。'},meaning:'用于验证划词流程的合成解释。',explanation:'这是本地测试服务的响应。',uncertainty:'',candidates:[]};
+  res.writeHead(200,{'Content-Type':'text/event-stream','Access-Control-Allow-Origin':'*'});res.end('data: '+JSON.stringify({type:'response.output_text.delta',delta:JSON.stringify(data)})+'\n\ndata: '+JSON.stringify({type:'response.completed',response:{usage:{input_tokens:1,output_tokens:1}}})+'\n\n');
  }catch(error){res.writeHead(500);res.end(error.message);}
 });
-await new Promise(r=>server.listen(0,'127.0.0.1',r));
-const site='http://127.0.0.1:'+server.address().port;
-let context,page,library;
-const rpc=(type,payload={})=>library.evaluate(async({type,payload})=>{const result=await chrome.runtime.sendMessage({type,payload});if(!result?.ok)throw new Error(result?.error||'No extension response');return result.data;},{type,payload});
-const marked=()=>[...CSS.highlights.get('context-reader-known')||[]].filter(r=>r.startContainer.parentElement.closest('#context-reader-weread-prototype')).map(r=>({text:r.toString(),rect:r.getBoundingClientRect().toJSON()}));
-async function closeCard(){const frame=page.frames().find(f=>f.url().startsWith(origin+'/card.html'));if(frame&&await frame.locator('#close').count())await frame.locator('#close').click();await page.mouse.move(1,1);await page.evaluate(()=>getSelection().removeAllRanges());await page.locator('#context-reader-host').waitFor({state:'detached'});}
-async function card(){await page.locator('#context-reader-host').waitFor();await page.waitForFunction(origin=>[...document.querySelectorAll('#context-reader-host')].length>0,origin);for(let attempt=0;attempt<100;attempt++){const frame=page.frames().find(f=>f.url().startsWith(origin+'/card.html'));if(frame&&await frame.locator('#close').count()){await frame.locator('.loading-text').waitFor({state:'detached'});await frame.evaluate(()=>document.fonts.ready);await page.locator('#context-reader-host').evaluate(async host=>{let last='',stable=0;for(let n=0;n<120;n++){await new Promise(requestAnimationFrame);const r=host.getBoundingClientRect(),next=[r.x,r.y,r.width,r.height].join(',');stable=next===last?stable+1:0;last=next;if(stable===6)return;}throw new Error('Card geometry did not settle');});return frame;}await page.waitForTimeout(30);}throw new Error('Card iframe did not load');}
-async function wordRange(word){return page.evaluate(word=>{for(const scope of document.querySelectorAll('[data-cr-weread-scope]')){const nodes=[],walker=document.createTreeWalker(scope,NodeFilter.SHOW_TEXT);let node,text='';while(node=walker.nextNode()){nodes.push({node,at:text.length});text+=node.textContent;}const at=text.indexOf(word);if(at<0)continue;const first=nodes.findLast(n=>n.at<=at),last=nodes.findLast(n=>n.at<at+word.length),r=document.createRange();r.setStart(first.node,at-first.at);r.setEnd(last.node,at+word.length-last.at);const rects=[...r.getClientRects()].filter(r=>r.width&&r.height);if(!rects.length)continue;return {text:r.toString(),first:rects[0].toJSON(),last:rects.at(-1).toJSON(),scope:text};}return null;},word);}
+await new Promise(r=>server.listen(0,'127.0.0.1',r));const api='http://127.0.0.1:'+server.address().port;
+const rpc=(type,payload={})=>library.evaluate(async({type,payload})=>{const r=await chrome.runtime.sendMessage({type,payload});if(!r?.ok)throw new Error(r?.error||'No extension response');return r.data;},{type,payload});
+const mirrorMarks=()=>[...CSS.highlights.get('context-reader-known')||[]].filter(r=>r.startContainer.parentElement.closest('#context-reader-weread-text')).map(r=>({text:r.toString(),rect:r.getBoundingClientRect().toJSON()}));
+async function card(){await page.locator('#context-reader-host').waitFor({timeout:5000});for(let attempt=0;attempt<150;attempt++){const frame=page.frames().find(f=>f.url().startsWith(origin+'/card.html'));if(frame&&await frame.locator('#close').count()){await frame.locator('.loading-text').waitFor({state:'detached'});await frame.evaluate(()=>document.fonts.ready);return frame;}await page.waitForTimeout(25);}throw new Error('Card iframe did not load');}
+async function closeCard(){const frame=page.frames().find(f=>f.url().startsWith(origin+'/card.html'));if(frame&&await frame.locator('#close').count())await frame.locator('#close').click();await page.mouse.move(1,1);await page.locator('#context-reader-host').waitFor({state:'detached'});}
+async function wordRange(wanted){return page.evaluate(wanted=>{for(const scope of document.querySelectorAll('[data-cr-weread-scope]')){const nodes=[],walker=document.createTreeWalker(scope,NodeFilter.SHOW_TEXT);let node,raw='';while(node=walker.nextNode()){nodes.push({node,at:raw.length});raw+=node.textContent;}let normalized='',offsets=[],space=false;for(let i=0;i<raw.length;i++){if(/\s/.test(raw[i])){if(!space){normalized+=' ';offsets.push(i);}space=true;}else{normalized+=raw[i];offsets.push(i);space=false;}}const at=normalized.indexOf(wanted);if(at<0)continue;const from=offsets[at],end=offsets[at+wanted.length-1]+1,first=nodes.findLast(n=>n.at<=from),last=nodes.findLast(n=>n.at<end),range=document.createRange();range.setStart(first.node,from-first.at);range.setEnd(last.node,end-last.at);const a=first.node.parentElement.closest('[data-cr-weread-glyph]'),b=last.node.parentElement.closest('[data-cr-weread-glyph]');if(!a||!b)continue;return{text:range.toString(),first:a.getBoundingClientRect().toJSON(),last:b.getBoundingClientRect().toJSON(),scope:raw};}return null;},wanted);}
+async function nativeDrag(wanted){const target=await wordRange(wanted);assert.ok(target,'Visible mirror is missing '+wanted);await page.mouse.move(target.first.x+Math.min(1,target.first.width/4),target.first.y+target.first.height/2);await page.mouse.down();await page.mouse.move(target.last.right-Math.min(1,target.last.width/4),target.last.y+target.last.height/2,{steps:20});await page.mouse.up();await page.locator('[data-wr-role="selectionToolbar"]').waitFor({state:'visible'});assert.equal(await page.evaluate(()=>getSelection().toString()),'');return target;}
+async function dismissNative(){const c=await page.locator('canvas').first().boundingBox();await page.mouse.click(c.x+10,c.y+c.height-20);await page.mouse.move(1,1);await page.locator('[data-wr-role="selectionToolbar"]').waitFor({state:'hidden'});await page.waitForFunction(()=>{const root=document.querySelector('#context-reader-weread-text');return root&&getComputedStyle(root).opacity==='1';});await page.locator('#context-reader-host').waitFor({state:'detached'});}
 async function snapshot(name){const path=join(out,name+'.png');await page.screenshot({path});report.screenshots.push(path);}
-async function assertFixtureAlignment(){
- const actual=await wordRange('fortune');
- const expected=await page.locator('canvas').first().evaluate(c=>{const r=c.getBoundingClientRect(),ctx=c.getContext('2d');return {x:r.x+28*r.width/440,y:r.y+(60+2*38)*r.height/570,width:ctx.measureText('fortune').width*r.width/440};});
- assert.ok(Math.abs(actual.first.x-expected.x)<1.5,'first selected glyph aligns with the independently known canvas paint x');
- assert.ok(Math.abs(actual.last.x+actual.last.width-expected.x-expected.width)<1.5,'last selected glyph aligns with the canvas word width');
- assert.ok(Math.abs(actual.first.y+actual.first.height/2-expected.y)<5,'glyph baseline aligns with the canvas row');
-}
+async function noToolbarOverlap(){const [a,b]=await Promise.all([page.locator('#context-reader-host').boundingBox(),page.locator('[data-wr-role="selectionToolbar"]').boundingBox()]);assert.ok(a&&b);assert.ok(a.x+a.width<=b.x||b.x+b.width<=a.x||a.y+a.height<=b.y||b.y+b.height<=a.y,'ContextReader must leave the native toolbar uncovered');}
+async function settledCard(){await page.locator('#context-reader-host').evaluate(async host=>{let last='',stable=0;for(let n=0;n<120;n++){await new Promise(requestAnimationFrame);const r=host.getBoundingClientRect(),next=[r.x,r.y,r.width,r.height].join(',');stable=next===last?stable+1:0;last=next;if(stable>=6)return;}throw new Error('Reader card geometry did not settle');});}
+async function notifyPage(){await library.evaluate(async()=>{const tabs=await chrome.tabs.query({url:'https://weread.qq.com/*'});await Promise.all(tabs.map(t=>chrome.tabs.sendMessage(t.id,{type:'CR_INDEX_CHANGED'})));chrome.runtime.sendMessage({type:'CR_LIBRARY_CHANGED'}).catch(()=>{});});}
+async function waitSaved(){await Promise.race([learningRequest,new Promise((_,reject)=>{const timer=setTimeout(()=>reject(new Error('Learning request did not reach synthetic service')),30000);timer.unref();})]);await library.waitForFunction(async()=>{const r=await chrome.runtime.sendMessage({type:'CR_SNAPSHOT'});return r.data.entries.some(e=>e.canonical==='fortune'&&e.learning.status==='ready');});await page.waitForFunction(()=>[...CSS.highlights.get('context-reader-known')||[]].some(r=>r.toString()==='fortune'));assert.equal(quickCalls,1);assert.equal(learningCalls,1);}
+
 try{
- context=await chromium.launchPersistentContext(join(out,'profile'),{channel:'chromium',headless:true,ignoreDefaultArgs:['--disable-extensions'],viewport:{width:1440,height:1000},deviceScaleFactor:2,args:['--load-extension='+extension,'--disable-extensions-except='+extension]});
+ context=await chromium.launchPersistentContext(join(out,'profile'),{channel:'chromium',headless:true,ignoreDefaultArgs:['--disable-extensions'],viewport:{width:1280,height:1000},deviceScaleFactor:2,args:['--load-extension='+extension,'--disable-extensions-except='+extension]});
  context.on('page',p=>p.on('pageerror',e=>report.errors.push(e.message)));
- // Pages may not call the public API. Extension worker requests are instead
- // constrained by the fresh profile's explicit local fixture configuration.
  await context.route('**/api.openai.com/**',route=>route.abort());
- await context.addInitScript(installWeReadPrototype);
- library=await context.newPage();await library.goto(origin+'/library.html');
- await rpc('CR_SAVE_SETTINGS',{mode:'api',apiKey:'WEREAD_FIXTURE_ONLY',baseUrl:site+'/v1',model:'fixture',protocol:'responses',rememberKey:true});
- page=await context.newPage();
- const url=live?'https://weread.qq.com/web/reader/b9f329705b6af5b9ffcf076k06932ec027e069059b7e512':site+'/web/reader/fixture';
- await page.goto(url,{waitUntil:'domcontentloaded',timeout:60000});
- await page.waitForFunction(()=>document.querySelector('[data-cr-weread-scope]')?.textContent.length>30,null,{timeout:45000});
- let target=await wordRange('fortune');
- if(!target&&live){const next=page.getByRole('button',{name:'下一页',exact:true});if(await next.count()){await next.click();await page.waitForFunction(()=>[...document.querySelectorAll('[data-cr-weread-scope]')].some(e=>e.textContent.includes('fortune')),null,{timeout:30000});target=await wordRange('fortune');}}
- assert.ok(target,'The current public preview must contain the expected word; no paywall/login bypass is attempted.');
- assert.match(target.scope,/\sfortune|fortune,/);report.capture={canvasCount:await page.locator('canvas').count(),glyphCount:await page.locator('[data-cr-weread-glyph]').count(),target:target.text,explicitSpaces:/\w \w/.test(target.scope)};
- if(!live)await assertFixtureAlignment();
- pass('real readable glyphs, explicit English spaces and CSS-coordinate ranges are available');
- assert.equal(calls,0);
- const a=target.first,b=target.last;
- await page.mouse.move(a.x+1,a.y+a.height/2);await page.mouse.down();await page.mouse.move(b.x+b.width-1,b.y+b.height/2,{steps:20});await page.mouse.up();
- assert.equal(await page.evaluate(()=>getSelection()?.toString()),'fortune');
- if(!live)assert.equal(await page.evaluate(()=>window.nativeSelections),0);
- let frame=await card();assert.equal(await frame.locator('.selection-preview').innerText(),'fortune');assert.equal(calls,0);
- pass('mouse dragging opens the existing selection card without inference');await snapshot('selection');
- await frame.locator('#run').click();await library.waitForFunction(async()=>{const r=await chrome.runtime.sendMessage({type:'CR_SNAPSHOT'});return r.data.entries.some(e=>e.canonical==='fortune'&&e.learning.status==='ready');});
- await Promise.race([learningResponse,new Promise((_,reject)=>{const timeout=setTimeout(()=>reject(new Error('Learning fixture did not respond')),30000);timeout.unref();})]);
- await page.waitForFunction(()=>[...CSS.highlights.get('context-reader-known')||[]].some(r=>r.toString()==='fortune'));
- assert.equal(calls,2);assert.equal(submitted[0].selected,'fortune');assert.ok(submitted[0].context.includes('fortune'));
- report.explanation={selected:submitted[0].selected,contextContainsSelection:true,sourceHost:new URL(submitted[0].source.url).hostname};
- pass('explicit explain uses the existing task and library flow with the original page source');
- await closeCard();const matches=await page.evaluate(marked);assert.ok(matches.length>=1);report.markCount=matches.length;
- pass('saved words are automatically highlighted on the original canvas page');await snapshot('saved-highlights');
- const r=matches[0].rect;await page.mouse.move(r.x+r.width/2,r.y+r.height/2);frame=await card();await frame.locator('.term-title').filter({hasText:'fortune'}).waitFor();assert.equal(calls,2);
- pass('hover opens the existing saved-word card with zero extra model requests');await snapshot('hover');
- await closeCard();await page.reload({waitUntil:'domcontentloaded'});await page.waitForFunction(()=>[...CSS.highlights.get('context-reader-known')||[]].some(r=>r.toString()==='fortune'));
- assert.equal(calls,2);pass('reload reconstructs the layer and restores saved highlights without inference');
+ if(!live)await context.route('https://weread.qq.com/**',route=>route.fulfill({status:200,contentType:'text/html;charset=utf-8',body:fixture}));
+ library=await context.newPage();await library.goto(origin+'/library.html');await rpc('CR_SAVE_SETTINGS',{mode:'api',apiKey:'WEREAD_FIXTURE_ONLY',baseUrl:api+'/v1',model:'fixture',protocol:'responses',rememberKey:true});
+ page=await context.newPage();await page.goto(live?previewUrl:fixtureUrl,{waitUntil:'domcontentloaded',timeout:60000});if(!live)await page.evaluate(()=>window.addEventListener('message',event=>{if(event.source===window&&event.data?.channel==='context-reader-weread'&&event.data.type==='snapshot')window.__wereadValidationSnapshot=event.data;}));
+ await page.waitForFunction(()=>[...document.querySelectorAll('[data-cr-weread-scope]')].some(p=>p.textContent.includes('fortune')),null,{timeout:45000});
+ assert.equal(await page.locator('#context-reader-weread-text [data-cr-weread-glyph]').evaluateAll(es=>es.every(e=>getComputedStyle(e).pointerEvents==='none')),true);
+ assert.equal(calls,0);pass('shipped document-start adapter captures readable canvas text without model calls or pointer interception');
+ await nativeDrag('fortune');let frame=await card();assert.equal(await frame.locator('.selection-preview').innerText(),'fortune');await noToolbarOverlap();assert.equal(calls,0);
+ if(!live)assert.equal(await page.evaluate(()=>window.fixture.nativeStarts),1);
+ pass('native selection stays active, excludes adjacent comma, and opens the existing card beside the native toolbar');await snapshot('native-selection');
  if(!live){
+  const button=frame.locator('#run');await frame.evaluate(()=>window.__pressedControl=document.querySelector('#run'));const box=await button.boundingBox();await page.mouse.move(box.x+box.width/2,box.y+box.height/2);await page.mouse.down();await notifyPage();await page.waitForTimeout(180);assert.equal(await frame.evaluate(()=>window.__pressedControl===document.querySelector('#run')),true);await page.mouse.up();
+  pass('background notifications preserve a pressed explain control and its click');
+ }else await frame.locator('#run').click();
+ await waitSaved();assert.equal(calls,2);assert.equal(submitted[0].selected,'fortune');assert.equal(new URL(submitted[0].source.url).hostname,'weread.qq.com');
+ if(!live){assert.equal(submitted[0].context,paragraph);assert.equal(submitted[0].sentence,paragraph.slice(0,paragraph.indexOf('. The whole')+1));assert.equal(submitted[0].context.includes('NATIVE_HIDDEN_TRANSLATION'),false);assert.ok(submitted[0].context.includes('original ending.'));}
+ const saved=await rpc('CR_SNAPSHOT'),savedContext=saved.contexts.find(c=>c.surface==='fortune');assert.equal(savedContext.source.url,live?previewUrl:fixtureUrl);
+ report.explanation={selected:submitted[0].selected,context:submitted[0].context,source:submitted[0].source};pass('explicit explanation stores original source and full original paragraph beyond visible lines, excluding hidden translations');
+ await closeCard();await dismissNative();let marks=await page.evaluate(mirrorMarks);assert.ok(marks.length>=1);if(!live)assert.equal(marks.length,2);report.markCount=marks.length;
+ const r=marks[0].rect;await page.mouse.move(r.x+r.width/2,r.y+r.height/2);frame=await card();await frame.locator('.term-title').filter({hasText:'fortune'}).waitFor();assert.equal(calls,2);pass('saved words highlight and hover reads the existing card with zero inference');await snapshot('saved-hover');await closeCard();
+ if(!live){
+  await nativeDrag('fortune');await card();await page.locator('[data-wr-role="selectionToolbar"] .underlineBg').click();assert.equal(await page.evaluate(()=>window.fixture.nativeMarks),1);await page.locator('#context-reader-host').waitFor({state:'detached'});assert.equal(calls,2);pass('native marker handler runs unchanged and dismisses the ContextReader card');
+  await nativeDrag('fortune');await card();await page.locator('[data-wr-role="selectionToolbar"] .review').click();await page.locator('#context-reader-host').waitFor({state:'detached'});const editor=page.locator('.reader_float_review_writer_editor_textarea');await editor.fill('Native draft survives background updates');await notifyPage();assert.equal(await editor.inputValue(),'Native draft survives background updates');assert.equal(await page.evaluate(()=>window.fixture.nativeThoughts),1);await page.locator('#close-native-writer').click();assert.equal(calls,2);pass('native thought editor keeps focus and draft through background updates without any note submission');
   await rpc('CR_IMPORT',{version:1,entries:[{id:'phrase-fixture',canonical:'follow a phrase',aliases:[],kind:'phrase',baseMeanings:['合成短语']}],contexts:[],snippets:[]});
-  await page.waitForFunction(()=>[...CSS.highlights.get('context-reader-phrase')||[]].some(r=>/follow\s+a phrase/.test(r.toString())));pass('saved phrases match across visible wrapped lines');
-  pass('prototype text dragging avoids triggering the simulated native selection menu');
-  const wrapped=await wordRange('follow\na phrase');assert.ok(wrapped);
-  await page.mouse.move(wrapped.first.x+1,wrapped.first.y+wrapped.first.height/2);await page.mouse.down();await page.mouse.move(wrapped.last.x+wrapped.last.width-1,wrapped.last.y+wrapped.last.height/2,{steps:20});await page.mouse.up();
-  assert.equal(await page.evaluate(()=>getSelection().toString().replace(/\s+/g,' ').trim()),'follow a phrase');
-  frame=await card();assert.equal(await frame.locator('.selection-preview').innerText(),'follow a phrase');assert.equal(calls,2);await closeCard();pass('dragging across wrapped lines selects the exact phrase and opens the existing card without inference');
-  await page.locator('#next').click();await page.waitForFunction(()=>document.querySelector('[data-cr-weread-scope]')?.textContent.includes('different page'));await page.waitForFunction(()=>!(CSS.highlights.get('context-reader-known')?.size));
-  pass('canvas clear and reuse removes old text and highlights after a page turn');
-  await page.locator('#next').click();await page.waitForFunction(()=>[...CSS.highlights.get('context-reader-known')||[]].filter(r=>r.toString()==='fortune').length===2);pass('returning to the previous page restores both saved occurrences');
-  await page.setViewportSize({width:1100,height:900});await page.waitForFunction(()=>[...CSS.highlights.get('context-reader-known')||[]].every(r=>r.getBoundingClientRect().width>0));await assertFixtureAlignment();await snapshot('resized');pass('high-DPR range geometry stays aligned with actual canvas paint coordinates after resize');
-  await page.evaluate(()=>{for(const c of document.querySelectorAll('canvas'))c.width=c.width;});
-  await page.waitForFunction(()=>document.querySelector('#context-reader-weread-prototype')?.dataset.glyphCount==='0'&&!CSS.highlights.get('context-reader-known')?.size);
-  await page.evaluate(()=>window.paint());await page.waitForFunction(()=>[...CSS.highlights.get('context-reader-known')||[]].filter(r=>r.toString()==='fortune').length===2);pass('equal-size canvas bitmap resets clear stale text before a later redraw');
+  await page.waitForFunction(()=>[...CSS.highlights.get('context-reader-phrase')||[]].some(r=>/follow\s+a phrase/.test(r.toString())));await nativeDrag('follow a phrase');frame=await card();assert.equal(await frame.locator('.selection-preview').innerText(),'follow a phrase');assert.equal(calls,2);await closeCard();await dismissNative();pass('saved phrases and native selection remain exact across visual line wrapping');
+  await page.locator('#fixture-link').click();assert.ok(page.url().endsWith('#native-link'));pass('pointer-transparent mirror preserves native links');
+  await page.locator('#next').click();await page.waitForFunction(()=>[...document.querySelectorAll('[data-cr-weread-scope]')].some(p=>p.textContent.includes('different page')));await page.waitForFunction(()=>!CSS.highlights.get('context-reader-known')?.size);await page.locator('#next').click();await page.waitForFunction(()=>[...CSS.highlights.get('context-reader-known')||[]].filter(r=>r.toString()==='fortune').length===2);pass('canvas page reuse removes stale text and restores saved marks on return');
+  await page.locator('#reset').click();await page.waitForFunction(()=>!document.querySelector('[data-cr-weread-glyph]')&&!CSS.highlights.get('context-reader-known')?.size);await page.locator('#redraw').click();await page.waitForFunction(()=>[...CSS.highlights.get('context-reader-known')||[]].filter(r=>r.toString()==='fortune').length===2);pass('equal-size bitmap resets clear stale text before redraw');
+  const tabId=await library.evaluate(async()=>{const tabs=await chrome.tabs.query({url:'https://weread.qq.com/*'});return tabs[0].id;});await rpc('CR_SET_SITE_ENABLED',{tabId,enabled:false});await page.waitForFunction(()=>!document.querySelector('[data-cr-weread-glyph]')&&!CSS.highlights.get('context-reader-known')?.size);await page.locator('#redraw').click();assert.equal(await page.locator('[data-cr-weread-glyph]').count(),0);await rpc('CR_SET_SITE_ENABLED',{tabId,enabled:true});await page.locator('#redraw').click();await page.waitForFunction(()=>[...CSS.highlights.get('context-reader-known')||[]].filter(r=>r.toString()==='fortune').length===2);assert.equal(calls,2);pass('origin opt-out stops capture and re-enable restores marks without model requests');
+  const beforeTasks=(await rpc('CR_TASK_LIST')).length;await page.evaluate(()=>{const forged={kind:'term',selected:'malicious bridge request',sentence:'untrusted page',context:'untrusted page',source:{url:location.href,title:document.title}};window.postMessage({type:'CR_SUBMIT',payload:forged},location.origin);window.postMessage({channel:'context-reader-weread',type:'snapshot',page:location.pathname,revision:999999999,canvases:[{fontFamily:'invalid',glyphs:[{text:'forged',font:'20px Georgia',scaleX:NaN,scaleY:1}]}],request:forged},location.origin);window.postMessage({channel:'context-reader-weread',type:'submit',request:forged},location.origin);});await notifyPage();assert.equal((await rpc('CR_TASK_LIST')).length,beforeTasks);assert.equal(calls,2);pass('malformed page bridge messages cannot submit model tasks');
+  for(const dark of [false,true])for(const width of [1280,390]){await page.setViewportSize({width,height:1000});await page.emulateMedia({colorScheme:dark?'dark':'light'});await library.evaluate(appearance=>chrome.storage.local.set({appearance}),dark?'dark':'light');await page.evaluate(dark=>{document.body.classList.toggle('dark',dark);return window.paint();},dark);await page.waitForFunction(()=>[...CSS.highlights.get('context-reader-known')||[]].filter(r=>r.toString()==='fortune').length===2);await page.waitForFunction(()=>{const c=document.querySelector('canvas'),g=document.querySelector('[data-cr-weread-glyph]');if(!c||!g)return false;const r=c.getBoundingClientRect();return Math.abs(g.getBoundingClientRect().left-r.left-28*r.width/440)<1.5;});const target=await wordRange('fortune'),expected=await page.locator('canvas').first().evaluate(c=>{const r=c.getBoundingClientRect();return{x:r.left+28*r.width/440,y:r.top+136*r.height/570};});assert.ok(Math.abs(target.first.x-expected.x)<1.5);assert.ok(Math.abs(target.first.y+target.first.height/2-expected.y)<5);await nativeDrag('fortune');await card();await noToolbarOverlap();await snapshot((dark?'dark':'light')+'-'+width);await closeCard();await dismissNative();}
+  await nativeDrag('fortune');frame=await card();await frame.locator('#expand').click();await frame.locator('.reading-card.is-expanded').waitFor();await settledCard();await noToolbarOverlap();assert.equal(await frame.locator('#close').isVisible(),true);await notifyPage();assert.equal(await frame.locator('.reading-card.is-expanded').count(),1);await closeCard();await dismissNative();
+  assert.equal(calls,2);pass('DPR-two geometry, light/dark themes and narrow native toolbar coexistence remain aligned');pass('expanded narrow cards settle beside native actions and preserve their state on background updates');
  }
- report.passed=true;
-}catch(error){report.passed=false;report.failure=error.stack;console.error(error.stack);if(page){await snapshot('failure').catch(()=>{});report.prototype=await page.locator('#context-reader-weread-prototype').evaluate(e=>({status:e.dataset.status,text:e.textContent.slice(0,1200)})).catch(()=>null);}process.exitCode=1;
-}finally{
- report.modelRequests=calls;await writeFile(join(out,'report.json'),JSON.stringify(report,null,2));console.log('REPORT '+join(out,'report.json'));await context?.close();await new Promise(r=>server.close(r));
-}
+ await page.reload({waitUntil:'domcontentloaded'});await page.waitForFunction(()=>[...CSS.highlights.get('context-reader-known')||[]].some(r=>r.toString()==='fortune'),null,{timeout:45000});assert.equal(calls,2);pass('reload restores shipped capture and saved highlights without inference');
+ if(!live){await page.evaluate(()=>{history.pushState({},'', '/web/shelf');document.querySelector('.readerChapterContent').remove();});await page.waitForFunction(()=>!document.querySelector('#context-reader-weread-text')&&!CSS.highlights.get('context-reader-known')?.size);assert.equal(calls,2);pass('SPA navigation away from the reader clears captured text and all stale highlights');}
+ if(!live)assert.deepEqual(report.errors,[]);report.passed=true;
+}catch(error){report.passed=false;report.failure=error.stack;console.error(error.stack);if(page){await snapshot('failure').catch(()=>{});report.adapter=await page.locator('#context-reader-weread-text').evaluate(e=>({status:{...e.dataset},text:e.textContent.slice(0,1200)})).catch(()=>null);report.native=await page.locator('.wr_selection').evaluateAll(es=>es.map(e=>e.getBoundingClientRect().toJSON())).catch(()=>null);if(!live)report.captureSnapshot=await page.evaluate(()=>window.__wereadValidationSnapshot).catch(()=>null);}process.exitCode=1;
+}finally{report.modelRequests=calls;report.quickRequests=quickCalls;report.learningRequests=learningCalls;await writeFile(join(out,'report.json'),JSON.stringify(report,null,2));console.log('REPORT '+join(out,'report.json'));await context?.close();await new Promise(r=>server.close(r));}

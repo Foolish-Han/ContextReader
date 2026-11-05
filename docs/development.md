@@ -30,6 +30,7 @@ npm run test:cloud
 npm run test:async
 npm run test:auto
 npm run test:oauth
+npm run test:weread
 ```
 
 各套件在 `test-results` 创建自己的 Chrome 资料和模拟服务，不复用日常 Chrome，不需要真人密钥、Google 登录或 ChatGPT 额度。请保持此隔离。
@@ -38,7 +39,9 @@ npm run test:oauth
 
 `test:live`、`test:e2e` 等真人服务脚本不在 CI 中运行。必须由本人明确进行登录和授权，不能为了复测撤销或重新索取已有授权。
 
-微信读书适配验证使用 `npm run test:weread`（本地画布夹具）或 `npm run test:weread -- --live`（未登录的公开试读页）。两者均使用隔离浏览器和本地模拟解释服务，不读取日常浏览器资料，不发起真实模型请求。透明文字层仅通过测试注入，不包含在发行扩展中；它会接管文字区域的拖选，语境仅覆盖已捕获的可见画布。真实站点验证不加入 CI，结果和截图保存在忽略的 `test-results/`。
+微信读书使用仅匹配 `https://weread.qq.com/*` 的 `document_start` 捕获与隔离控制脚本。MAIN 桥只传送有上限的正文和排版坐标；网站启停、知识库、卡片及任务仍由隔离脚本和原有后台管理。透明文字层不接收鼠标事件，原生选区按实际绘制宽度映射；原生菜单、编辑器操作优先，卡片避让原生菜单。排版时短暂出现的原始段落提供上下文，无法唯一对齐时退回已捕获片段，不推断缺失文字。
+
+`npm run test:weread` 使用本地模拟的微信读书页面和发行构建，检查原生划选、标记、写想法草稿、完整段落与句子、悬停、停用、重绘和窄屏。`npm run test:weread -- --live` 另外访问未登录公开试读页；两者均使用隔离浏览器及本地模拟解释服务，不读取日常浏览器资料或真实模型额度。真实站点验证不加入 CI，账号内笔记保存仍由本人手动验收。结果和截图位于忽略的 `test-results/`。
 
 ## 公共配置与私密数据
 
