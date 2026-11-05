@@ -34,7 +34,7 @@
     "@fontsource-variable/noto-serif-sc": "5.3.1",
     "@radix-ui/colors": "3.0.0",
     "jose": "6.2.15",
-    "lucide": "1.62.0",
+    "lucide": "1.66.0",
     "openai": "7.47.0",
     "proper-lockfile": "4.1.2"
   },
