@@ -2,6 +2,7 @@ import test from 'node:test';import assert from 'node:assert/strict';
 import {generateKeyPair,exportJWK,SignJWT} from 'jose';
 import {createCredentialVault} from '../src/background/oauth-vault.mjs';
 import {createBrowserOAuth,OAUTH_CALLBACK} from '../src/background/oauth.mjs';
+import {infer} from '../src/background/provider.mjs';
 const issuer='https://auth.openai.com',clientId='oaiapp_synthetic';
 const {privateKey,publicKey}=await generateKeyPair('RS256'),jwk=await exportJWK(publicKey);jwk.kid='synthetic';
 const sign=(nonce,subject='reader',receivedAt=Date.now())=>new SignJWT({...(nonce?{nonce}:{})}).setProtectedHeader({alg:'RS256',kid:jwk.kid}).setIssuer(issuer).setAudience(clientId).setSubject(subject).setIssuedAt(Math.floor(receivedAt/1000)).setExpirationTime(Math.floor(receivedAt/1000)+300).sign(privateKey);
@@ -9,7 +10,7 @@ const area=()=>{const data={};return {data,async get(key){return structuredClone
 async function fixture(){
  const chrome={storage:{local:area(),session:area()},runtime:{getURL:path=>'chrome-extension://test/'+path},tabs:{items:new Map(),async create(input){const tab={id:this.items.size+1,...input};this.items.set(tab.id,tab);return tab;},async update(id,input){Object.assign(this.items.get(id),input);},async remove(id){this.items.delete(id);}}};
  let encrypted={};const adapter={async read(){return structuredClone(encrypted);},async write(value){encrypted=structuredClone(value);}};const vault=createCredentialVault({adapter});
- const calls=[];let subject='reader',badNonce=false,denied=false,delayRefresh,failRevoke=false,omitRefreshIdentity=false,temporaryFailure=false,keyOutage=false,clock=Date.now();
+ const calls=[];let subject='reader',badNonce=false,denied=false,delayRefresh,failRevoke=false,omitRefreshIdentity=false,temporaryFailure=false,keyOutage=false,refreshScope,clock=Date.now();
  const request=async(url,options={})=>{
   const path=new URL(url).pathname;calls.push({path,body:options.body});
   if(path==='/.well-known/openid-configuration')return Response.json({issuer,authorization_endpoint:issuer+'/authorize',token_endpoint:issuer+'/token',jwks_uri:issuer+'/jwks',revocation_endpoint:issuer+'/revoke'});
@@ -21,7 +22,8 @@ async function fixture(){
    if(denied)return Response.json({error:'invalid_grant'},{status:400});
    if(body.get('grant_type')==='refresh_token'&&delayRefresh)await delayRefresh;
    const attempt=chrome.storage.session.data.chatgptSession?.attempt;
-   return Response.json({access_token:'synthetic-access',refresh_token:'synthetic-rotated-refresh',token_type:'Bearer',expires_in:3600,...(omitRefreshIdentity&&body.get('grant_type')==='refresh_token'?{}:{scope:'openid offline_access chatgpt.tokens.use.direct',id_token:await sign(badNonce?'wrong':body.get('grant_type')==='refresh_token'?undefined:nonce,subject,clock)})});
+   const reduced=body.get('grant_type')==='refresh_token'&&refreshScope!==undefined;
+   return Response.json({access_token:reduced?'synthetic-reduced-access':'synthetic-access',refresh_token:reduced?'synthetic-reduced-refresh':'synthetic-rotated-refresh',token_type:'Bearer',expires_in:3600,...(omitRefreshIdentity&&body.get('grant_type')==='refresh_token'?{}:{scope:reduced?refreshScope:'openid offline_access chatgpt.tokens.use.direct',id_token:await sign(badNonce?'wrong':body.get('grant_type')==='refresh_token'?undefined:nonce,subject,clock)})});
   }
   if(path==='/revoke')return new Response('',{status:failRevoke?503:200});
   throw new Error('Unexpected request '+path);
@@ -29,7 +31,7 @@ async function fixture(){
  let service=createBrowserOAuth({chrome,fetch:request,now:()=>clock,vault}),nonce;
  const begin=async(input={})=>{const result=await service.begin(input),tab=[...chrome.tabs.items.values()].at(-1),url=new URL(tab.url);nonce=url.searchParams.get('nonce');return {...result,tab,url};};
  const callback=async(attempt,params={})=>service.callback({type:'main_frame',frameId:0,tabId:attempt.tab.id,url:OAUTH_CALLBACK+'?'+new URLSearchParams({state:attempt.attemptId,code:'synthetic-code',client_id:clientId,...params})});
- return {chrome,calls,begin,callback,vault,encrypted:()=>encrypted,get service(){return service;},restart(){service=createBrowserOAuth({chrome,fetch:request,now:()=>clock,vault});},advance(ms){clock+=ms;},subject(value){subject=value;},badNonce(){badNonce=true;},deny(){denied=true;},delay(value){delayRefresh=value;},failRevoke(){failRevoke=true;},omitRefreshIdentity(){omitRefreshIdentity=true;},temporaryFailure(value){temporaryFailure=value;},keyOutage(value){keyOutage=value;}};
+ return {chrome,calls,begin,callback,vault,encrypted:()=>encrypted,get service(){return service;},restart(){service=createBrowserOAuth({chrome,fetch:request,now:()=>clock,vault});},advance(ms){clock+=ms;},subject(value){subject=value;},badNonce(){badNonce=true;},deny(){denied=true;},delay(value){delayRefresh=value;},failRevoke(){failRevoke=true;},omitRefreshIdentity(){omitRefreshIdentity=true;},temporaryFailure(value){temporaryFailure=value;},keyOutage(value){keyOutage=value;},refreshScope(value){refreshScope=value;}};
 }
 test('browser OAuth uses PKCE and issued registration; renderer state never contains credentials',async()=>{
  const f=await fixture(),a=await f.begin();assert.equal(a.url.searchParams.get('client_id'),'dynamic_agent_client');assert.equal(a.url.searchParams.get('redirect_uri'),OAUTH_CALLBACK);assert.equal(a.url.searchParams.get('code_challenge_method'),'S256');assert.ok(a.url.searchParams.get('ext_agent_host_id'));assert.equal(a.url.searchParams.has('client_secret'),false);
@@ -64,6 +66,21 @@ test('refresh is single flight, validates account identity, and stays out of per
  const values=await Promise.all([f.service.access(id),f.service.access(id)]);assert.equal(values[0].accessToken,values[1].accessToken);assert.equal(f.calls.filter(c=>c.path==='/token').length,2);
  assert.equal(/synthetic-access|synthetic-rotated-refresh/.test(JSON.stringify(f.chrome.storage.local.data)),false);
  f.advance(3600001);f.restart();f.subject('other');await assert.rejects(f.service.access(id),/账号不一致/);assert.equal((await f.service.state()).session.status,'disconnected');
+});
+for(const checkpoint of [false,true])test(`reduced sharing scope blocks the first inference after ${checkpoint?'checkpoint recovery':'refresh'} and retains rotated credentials`,async t=>{
+ const f=await fixture(),a=await f.begin();await f.callback(a);const id=(await f.service.state()).session.profileId;
+ f.advance(3600001);f.restart();f.refreshScope('openid offline_access');
+ if(checkpoint){f.keyOutage(true);await assert.rejects(f.service.access(id),{code:'identity_verification_unavailable'});assert.ok((await f.vault.read())[id].pendingRefresh);f.keyOutage(false);f.restart();}
+ const originalFetch=globalThis.fetch;let inferenceRequests=0;t.after(()=>{globalThis.fetch=originalFetch;});
+ globalThis.fetch=async()=>{inferenceRequests++;return Response.json({error:{message:'Synthetic inference must not be dispatched'}},{status:403});};
+ const explain=()=>infer({mode:'oauth',model:'synthetic-model'},'','quick',{kind:'term',selected:'fortune',sentence:'A fortune remains saved.',context:'A fortune remains saved.',source:{url:'https://example.test/article',title:'Synthetic article'}},{authorize:()=>f.service.access(id)});
+ const results=await Promise.allSettled([explain(),explain()]);
+ assert.ok(results.every(result=>result.status==='rejected'&&result.reason.code==='sharing_not_enabled'));
+ assert.equal(inferenceRequests,0,'no inference may use the newly narrowed grant');
+ const credentials=(await f.vault.read())[id];assert.equal(credentials.refreshToken,'synthetic-reduced-refresh');assert.equal(credentials.accessToken,'synthetic-reduced-access');assert.deepEqual(credentials.scopes,['openid','offline_access']);assert.equal(credentials.pendingRefresh,undefined);assert.equal(credentials.refreshInFlight,undefined);
+ assert.equal((await f.service.state()).session.sharing,false);assert.equal((await f.service.state()).session.status,'connected');
+ assert.equal(JSON.stringify(f.encrypted()).includes('synthetic-reduced'),false);assert.equal(JSON.stringify(f.chrome.storage.session.data).includes('synthetic-reduced'),false);
+ f.restart();await assert.rejects(f.service.access(id),{code:'sharing_not_enabled'});assert.equal(f.calls.filter(c=>c.path==='/token').length,2,'neither worker recovery nor rejection replays the consumed refresh grant');
 });
 test('an uncertain refresh is never replayed after worker termination',async()=>{
  const f=await fixture(),a=await f.begin();await f.callback(a);const id=(await f.service.state()).session.profileId;

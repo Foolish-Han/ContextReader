@@ -151,6 +151,9 @@ export function createBrowserOAuth({chrome,fetch:request=(...args)=>globalThis.f
      if(verified.subject!==profile.subject)throw failure('account_mismatch','刷新后的账号不一致，请重新登录。');
      const {verifyIdentity,receivedAt,...credential}=rotation;
      live.connections[profileId]={...credential,...verified};await saveSession(live);
+     // A refresh may narrow the grant. Retain its rotated successor securely,
+     // but never return an inference credential without the accepted scope.
+     if(!credential.scopes.includes('chatgpt.tokens.use.direct'))throw failure('sharing_not_enabled','请先授权使用 ChatGPT 订阅额度。');
      // A checkpoint can outlive its access token. Its verified refresh successor
      // remains usable, but an expired access token is never sent to inference.
      if(credential.expiresAt<=now()+5000)throw failure('access_expired','登录已恢复，请重试本次操作以更新访问凭据。');

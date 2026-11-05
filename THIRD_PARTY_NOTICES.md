@@ -9,6 +9,7 @@ The root MIT license covers independently authored Context Reader code and docum
 - Original source, license, attribution, provenance and change notices are retained in that directory.
 - The DevKit and the browser OAuth adaptation in `src/background/oauth.mjs` are governed by the [Sign-in with ChatGPT DevKit Noncommercial License v1.0](vendor/siwc-local/LICENSE).
 - The former Node helper, DPAPI adapter and injected `acquireAccessToken` runtime have been removed. The browser adaptation retains OAuth protocol and identity checks with an encrypted extension-origin IndexedDB vault and callback observation.
+- Refresh adaptation preserves rotated credentials and checks the accepted sharing scope before returning access, including recovery from a persisted refresh checkpoint; a narrowed grant cannot dispatch inference.
 - Independently authored extension UI, API Key integration and task/sync code remain under the root MIT license.
 - The complete distribution includes this noncommercial component. **Do not interpret the repository's MIT license as commercial-use permission for the DevKit or complete bundled distribution.** Commercial use of that component requires separate permission under its license.
 
