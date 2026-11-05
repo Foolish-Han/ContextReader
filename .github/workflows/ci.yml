@@ -34,6 +34,31 @@ jobs:
       - run: npm run test:auth
       - run: npm run verify:repo
       - run: npm run package
+  required-checks:
+    # Stable contexts already required by main's branch protection. Each one
+    # fails unless every OS/runtime entry in the expanded matrix succeeds.
+    name: checks (${{ matrix.node }})
+    needs: checks
+    if: ${{ always() }}
+    strategy:
+      matrix:
+        node: [22, 24]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require the complete build matrix
+        env:
+          MATRIX_RESULT: ${{ needs.checks.result }}
+        run: test "$MATRIX_RESULT" = success
+  required-browser:
+    name: browser-regression
+    needs: browser
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require the complete browser matrix
+        env:
+          MATRIX_RESULT: ${{ needs.browser.result }}
+        run: test "$MATRIX_RESULT" = success
   browser:
     name: browser-regression (${{ matrix.os }})
     strategy:
