@@ -31,7 +31,10 @@ try{
  const page=await context.newPage();await page.goto(site+'/article');const htmlBefore=await page.locator('#compound').innerHTML();await page.evaluate(()=>{const n=document.querySelector('#compound em').firstChild,r=document.createRange();r.selectNodeContents(n);getSelection().removeAllRanges();getSelection().addRange(r);n.parentElement.dispatchEvent(new MouseEvent('mouseup',{bubbles:true}));});
  const frame=page.frames().find(f=>f.url().startsWith(origin+'/card.html'))||await page.waitForEvent('framenavigated',{predicate:f=>f.url().startsWith(origin+'/card.html')}).catch(()=>page.frames().find(f=>f.url().startsWith(origin+'/card.html')));
  await frame.locator('#run').waitFor();await settleFrame(page,frame);await frame.locator('#run').click();await page.waitForFunction(()=>[...CSS.highlights.get('context-reader-known')||[]].some(r=>r.startContainer.parentElement.closest('#compound')));
- await library.waitForFunction(async()=>{const r=await chrome.runtime.sendMessage({type:'CR_SNAPSHOT'});return r.data.entries[0]?.learning.status==='ready';});
+ // Poll resolved snapshots in Node: waitForFunction treats a Promise as truthy.
+ const learningDeadline=Date.now()+30000;let learningReady=false;
+ while(Date.now()<learningDeadline){learningReady=(await rpc(library,'CR_SNAPSHOT')).entries[0]?.learning.status==='ready';if(learningReady)break;await new Promise(resolve=>setTimeout(resolve,25));}
+ assert.ok(learningReady,'the saved expression must finish its learning request');
  assert.equal(await page.locator('#compound').innerHTML(),htmlBefore);assert.equal(calls,2);pass('explaining agnostic inside domain-agnostic immediately marks the saved occurrence without modifying article markup');
  await settleFrame(page,frame);await frame.locator('#close').click();await page.mouse.move(2,2);await page.evaluate(()=>getSelection().removeAllRanges());await page.waitForSelector('#context-reader-host',{state:'detached'});
  const words=await page.evaluate(marked);assert.equal(words.length,5);assert.ok(words.some(r=>r.parent==='split'));assert.ok(words.some(r=>r.parent==='linked'));assert.equal(words.some(r=>r.parent==='excluded'),false);pass('all article blocks, inline-split words and reading links mark; navigation, code and editors remain excluded');

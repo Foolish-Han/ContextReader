@@ -18,6 +18,8 @@ A Chrome extension for contextual English reading, asynchronous LLM explanations
 
 所有普通 HTTP / HTTPS 网页默认启用。不需要时在扩展弹窗停用该网站。页面匹配、悬停和翻历史不调用模型。
 
+微信读书网页版可在原阅读页划选解释、自动标记已收录词并悬停查看。原生划线和写想法继续可用；操作原生菜单或编辑器时语境卡片让位。更新扩展后刷新阅读页，正文由可读取的 Canvas 文字及排版段落获取；图片、扫描页和不可读字形不保证支持。
+
 ## 界面预览
 
 以下是实际扩展渲染，内容使用模拟模型和账号数据。
@@ -98,9 +100,10 @@ npm run test:cloud
 npm run test:async
 npm run test:auto
 npm run test:oauth
+npm run test:weread
 ```
 
-CI 在 Linux、macOS、Windows 的 Node.js 22/24 上执行同一套构建、单测和打包检查，并在三个系统上运行六套浏览器回归。[验证范围](docs/ui-review.md)区分浏览器模拟服务验收与真人服务验收。
+CI 在 Linux、macOS、Windows 的 Node.js 22/24 上执行同一套构建、单测和打包检查，并在三个系统上运行七套浏览器回归。[验证范围](docs/ui-review.md)区分浏览器模拟服务验收与真人服务验收。
 
 ## 项目管理
 
