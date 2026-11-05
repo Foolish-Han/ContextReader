@@ -38,6 +38,8 @@ npm run test:oauth
 
 `test:live`、`test:e2e` 等真人服务脚本不在 CI 中运行。必须由本人明确进行登录和授权，不能为了复测撤销或重新索取已有授权。
 
+微信读书适配验证使用 `npm run test:weread`（本地画布夹具）或 `npm run test:weread -- --live`（未登录的公开试读页）。两者均使用隔离浏览器和本地模拟解释服务，不读取日常浏览器资料，不发起真实模型请求。透明文字层仅通过测试注入，不包含在发行扩展中；它会接管文字区域的拖选，语境仅覆盖已捕获的可见画布。真实站点验证不加入 CI，结果和截图保存在忽略的 `test-results/`。
+
 ## 公共配置与私密数据
 
 `extension/public-key.json` 和 `extension/google-oauth.json` 为需要随应用分发的公开配置。扩展 ID 固定为 `hndhiknbifkbmpebjflifdecfpcliddd`，不要随意重新生成。

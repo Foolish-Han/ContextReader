@@ -88,6 +88,7 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: npm run test:ui
       - run: npm run test:marks
+      - run: npm run test:weread
       - run: npm run test:cloud
       - run: npm run test:async
       - run: npm run test:auto
