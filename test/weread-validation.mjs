@@ -91,6 +91,11 @@ async function closeCard(){
   if(!frame.isDetached()){
    diagnostic.frameEvents=await frame.evaluate(()=>window.__wereadFrameEvents).catch(()=>null);
    diagnostic.shadowHit=await owner.evaluate((element,box)=>{const x=box.x+box.width/2,y=box.y+box.height/2,root=element.getRootNode(),hit=root.elementFromPoint(x,y),glass=element.previousElementSibling;return {tag:hit?.tagName,isFrame:hit===element,isGlass:hit===glass,framePointerEvents:getComputedStyle(element).pointerEvents,glassPointerEvents:glass&&getComputedStyle(glass).pointerEvents};},diagnostic.box).catch(()=>null);
+   if(!diagnostic.frameEvents?.some(event=>event.type==='pointermove'&&event.close)&&diagnostic.box){
+    const x=diagnostic.box.x+diagnostic.box.width/2,y=diagnostic.box.y+diagnostic.box.height/2;
+    await page.mouse.click(x,y);await page.waitForTimeout(200);diagnostic.sameHostAfterDiagnosticClick=await page.evaluate(()=>document.querySelector('#context-reader-host')===window.__wereadCloseProbe.host);
+    if(diagnostic.sameHostAfterDiagnosticClick&&!frame.isDetached()){await owner.evaluate(element=>element.previousElementSibling?.remove());await page.mouse.click(x,y);await page.waitForTimeout(200);diagnostic.sameHostAfterRemovingGlass=await page.evaluate(()=>document.querySelector('#context-reader-host')===window.__wereadCloseProbe.host);}
+   }
   }
  }
 }
