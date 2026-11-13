@@ -29,10 +29,11 @@ function winner(a,b,name){if(!a)return b;if(!b)return a;
  return selected;
 }
 export async function cloudContextKey(canonical,c){return digest(JSON.stringify([keyOf(canonical),...['selected','sentence','context','before','after'].map(k=>norm(c[k])),safeUrl(c.source?.url),provider(c.provider)]));}
+export async function cloudSnippetKey(s){return digest(JSON.stringify([s.text,s.context,s.sentence,safeUrl(s.source?.url),provider(s.provider),...(Object.hasOwn(s,'before')&&Object.hasOwn(s,'after')?[norm(s.before),norm(s.after)]:[])]));}
 async function flatten(data){const records=new Map(),entryKeys=new Map(data.entries.map(e=>[e.id,keyOf(e.canonical)]));
  for(const group of Object.keys(FIELDS))for(const raw of data[group]){
   const canonical=group==='entries'?keyOf(raw.canonical):entryKeys.get(raw.entryId);if(group==='contexts'&&!canonical)continue;
-  const key=group==='entries'?canonical:group==='contexts'?await cloudContextKey(canonical,raw):await digest(JSON.stringify([raw.text,raw.context,raw.sentence,safeUrl(raw.source?.url),provider(raw.provider),...(Object.hasOwn(raw,'before')&&Object.hasOwn(raw,'after')?[norm(raw.before),norm(raw.after)]:[])]));
+  const key=group==='entries'?canonical:group==='contexts'?await cloudContextKey(canonical,raw):await cloudSnippetKey(raw);
   const id=group+':'+(group==='entries'?await digest(key):key),values={};for(const name of FIELDS[group]){if(optionalField(group,name)&&!Object.hasOwn(raw,name))continue;values[name]=field(group,name,name==='entryKey'?canonical:name==='hashAliases'?[...(raw.hashAliases||[]),raw.hash].filter(Boolean):raw[name]);}
   records.set(id,{id,group,key,values,localId:raw.id});
  }return records;
@@ -76,7 +77,7 @@ export async function mergeCloud(d,envelopes){const m=meta(d);let changed=false;
   for(const register of [incoming.present,...Object.values(incoming.fields)])m.clock=Math.max(m.clock,register.stamp[0]);
  }
  if(!changed)return false;
- const previousEntries=new Map(d.entries.map(e=>[keyOf(e.canonical),e])),previousRecords=await flatten(d),localIds=new Map([...previousRecords].map(([id,r])=>[id,r.localId]));
+ const previousEntries=new Map(d.entries.map(e=>[keyOf(e.canonical),e])),previousSnippets=new Map(d.snippets.map(s=>[s.id,s])),previousRecords=await flatten(d),localIds=new Map([...previousRecords].map(([id,r])=>[id,r.localId]));
  const entries=[],contexts=[],snippets=[],entriesByKey=new Map();
  const values=doc=>Object.fromEntries(Object.entries(doc.fields).map(([name,reg])=>[name,structuredClone(reg.value)]));
  for(const doc of Object.values(m.documents))if(doc.group==='entries'&&doc.present.value){const v=values(doc);if(!v.canonical||keyOf(v.canonical)!==doc.key)throw new Error('云端表达名校验失败。');const existing=previousEntries.get(doc.key),entry={...v,id:existing?.id||crypto.randomUUID(),contextCount:0,updatedAt:new Date(Math.max(doc.present.stamp[0],...Object.values(doc.fields).map(r=>r.stamp[0]))).toISOString()};
@@ -85,7 +86,7 @@ export async function mergeCloud(d,envelopes){const m=meta(d);let changed=false;
  }
  for(const doc of Object.values(m.documents))if(doc.group!=='entries'&&doc.present.value){const v=values(doc),id=localIds.get(doc.id)||crypto.randomUUID();if(doc.group==='contexts'){
    const entry=entriesByKey.get(v.entryKey);if(!entry)continue;if(await cloudContextKey(v.entryKey,v)!==doc.key)throw new Error('云端语境身份校验失败。');delete v.entryKey;contexts.push({...v,id,entryId:entry.id});entry.contextCount++;
-  }else snippets.push({...v,id});
+  }else{const previous=previousSnippets.get(id),hashAliases=[...new Set([previous?.hash,...(previous?.hashAliases||[])])].filter(hash=>hash&&hash!==v.hash).slice(0,24);snippets.push({...v,id,...(hashAliases.length?{hashAliases}:{})});}
  }
  // Remote deletions invalidate local in-flight callbacks exactly like a local
  // deletion. Field updates alone cannot resurrect a tombstoned expression.

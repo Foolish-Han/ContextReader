@@ -33,9 +33,11 @@ import {getWeReadAdapter} from './weread.mjs';
   function selectionPayload(text,range,kind){
     if(weread?.containsRange(range)){const request=weread.requestForRange(range,kind);if(request)return request;}
     let node=range?.commonAncestorContainer;if(node?.nodeType===Node.TEXT_NODE)node=node.parentElement;const block=readingBlock(node);const original=norm(fragmentText(block)||text);text=range?norm(fragmentText(range.cloneContents())):text;let context=original;
-    if(original.length>3000){const i=original.indexOf(norm(text));context=original.slice(Math.max(0,i-500),Math.max(0,i-500)+3000);}
-    let before='',after='';if(range){try{const pre=document.createRange();pre.selectNodeContents(block);pre.setEnd(range.startContainer,range.startOffset);before=norm(fragmentText(pre.cloneContents())).slice(-400);const post=document.createRange();post.selectNodeContents(block);post.setStart(range.endContainer,range.endOffset);after=norm(fragmentText(post.cloneContents())).slice(0,400);}catch{}}
-    return {kind:kind||((text.length>140||/[.!?]\s+\S/.test(text)||/\s/.test(text)&&/[.!?][\"'’”)]*$/.test(text))?'passage':'term'),selected:norm(text),sentence:original.slice(0,2200),context,before,after,source:{url:safeUrl(location.href),title:document.title}};
+    let before='',after='',prefixLength=0;if(range){try{const pre=document.createRange();pre.selectNodeContents(block);pre.setEnd(range.startContainer,range.startOffset);const prefix=norm(fragmentText(pre.cloneContents()));prefixLength=prefix.length;before=prefix.slice(-400);const post=document.createRange();post.selectNodeContents(block);post.setStart(range.endContainer,range.endOffset);after=norm(fragmentText(post.cloneContents())).slice(0,400);}catch{}}
+    const occurrence=original.length>2200?locateOccurrence(original,{selected:text,context:original,before,after}):null,position=occurrence?.start??prefixLength;
+    if(original.length>3000){const start=Math.max(0,position-500);context=original.slice(start,start+3000);}
+    const sentence=original.slice(original.length>2200?Math.max(0,position-400):0).slice(0,2200);
+    return {kind:kind||((text.length>140||/[.!?]\s+\S/.test(text)||/\s/.test(text)&&/[.!?][\"'’”)]*$/.test(text))?'passage':'term'),selected:norm(text),sentence,context,before,after,source:{url:safeUrl(location.href),title:document.title}};
   }
   function showSelection(fallback=''){
     if(!enabled)return;

@@ -18,6 +18,15 @@ test('two saved positions of the same sentence survive a cloud merge as separate
  const a=repository(),b=repository(),base={...request('Read it. Read it.'),kind:'passage',selected:'Read it.'},result={meaning:'句意',explanation:'',uncertainty:'',candidates:[]};
  await a.saveSnippet(result,{...base,before:'',after:'Read it.'},'first',{});await a.saveSnippet(result,{...base,before:'Read it.',after:''},'second',{});await b.mergeCloud([await envelope(a)]);assert.equal((await b.snapshot()).snippets.length,2);assert.deepEqual((await b.passageIndex(base.source.url)).map(p=>p.request.before).sort(),['','Read it.']);
 });
+test('merging unrelated cloud changes preserves local passage cache aliases without uploading them',async()=>{
+ const a=repository(),b=repository(),req={...request('Read it.'),kind:'passage',selected:'Read it.',before:'',after:''},alias='a'.repeat(64);
+ await a.saveSnippet({meaning:'句意',explanation:'',uncertainty:'',candidates:[]},req,'current',{});await a.transaction(d=>{d.snippets[0].hashAliases=[alias];});const sent=await envelope(a);assert.equal(sent.documents.find(d=>d.group==='snippets').fields.hashAliases,undefined);
+ await b.mergeCloud([sent]);await save(b,'other','She tacitly accepted it.');await a.mergeCloud([await envelope(b)]);assert.equal((await a.cached(alias)).snippet.meaning,'句意');
+});
+test('merging the same passage from two devices preserves each device’s local cache identity',async()=>{
+ const a=repository(),b=repository(),req={...request('Read it.'),kind:'passage',selected:'Read it.',before:'',after:''},result={meaning:'句意',explanation:'',uncertainty:'',candidates:[]},provider={mode:'api',model:'fast',service:'fixture'};
+ await a.saveSnippet(result,req,'device-a',provider);await b.saveSnippet(result,req,'device-b',provider);await a.mergeCloud([await envelope(b)]);await b.mergeCloud([await envelope(a)]);assert.ok(await a.cached('device-a'));assert.ok(await b.cached('device-b'));assert.equal((await a.snapshot()).snippets.length,1);assert.equal((await b.snapshot()).snippets.length,1);
+});
 async function exchange(a,b){await a.mergeCloud([await envelope(b)]);await b.mergeCloud([await envelope(a)]);}
 test('two devices merge the same canonical word and distinct contexts without replacing local IDs',async()=>{
  const a=repository(),b=repository();const x=await save(a),y=await save(b,'two','She tacitly accepted it.');await exchange(a,b);const left=await a.snapshot(),right=await b.snapshot();assert.equal(left.entries.length,1);assert.equal(left.entries[0].id,x.entry.id);assert.equal(right.entries[0].id,y.entry.id);assert.equal(left.contexts.length,2);assert.equal(right.contexts.length,2);assert.equal(left.entries[0].ipaUS,expression.ipaUS);assert.equal(left.entries[0].contextCount,2);await exchange(a,b);assert.equal((await a.snapshot()).contexts.length,2);

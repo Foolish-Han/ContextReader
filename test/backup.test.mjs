@@ -21,3 +21,24 @@ test('passage index is source-scoped, keeps selected positions and conservativel
  await repository.import({version:1,entries:[],contexts:[],snippets:[{id:'old',hash:'old',text:'A legacy sentence.',context:'A legacy sentence.',source},{id:'ambiguous',hash:'ambiguous',text:'Again.',context:'Again. Again.',source}]});
  const index=await repository.passageIndex(source.url);assert.equal(index.length,2);assert.equal(index[0].request.after,'Read it.');assert.equal(index[1].request.before,'');assert.deepEqual(await repository.passageIndex('https://example.com/other'),[]);assert.equal((await repository.getSnippet(index[0].id)).snippet.meaning,'句意');assert.equal('meaning' in index[0],false);
 });
+
+test('backup import keeps saved learning during an interrupted refresh and preserves human edits',async()=>{
+ const repository=createRepository({read:async()=>undefined,write:async()=>{}});
+ const previous={usage:'之前保存的用法',memory:'之前的记忆',examples:[{english:'An example.',chinese:'一个例句。'}]};
+ await repository.import({version:1,entries:[
+  {id:'refreshing',canonical:'refreshing',learning:{status:'pending',refreshing:true,...previous}},
+  {id:'failed',canonical:'failed',learning:{status:'failed',...previous}},
+  {id:'edited',canonical:'edited',learning:{status:'ready',edited:true,...previous}}
+ ],contexts:[],snippets:[]});
+ const saved=await repository.snapshot(),byName=name=>saved.entries.find(e=>e.canonical===name);
+ for(const name of ['refreshing','failed']){
+  const learning=byName(name).learning;
+  assert.equal(learning.status,'failed');
+  assert.equal(learning.usage,previous.usage);
+  assert.deepEqual(learning.examples,previous.examples);
+ }
+ assert.equal(byName('edited').learning.edited,true);
+ await repository.learning(byName('edited').id,{status:'ready',usage:'模型覆盖'});
+ assert.equal((await repository.snapshot()).entries.find(e=>e.canonical==='edited').learning.usage,previous.usage);
+ assert.equal((await repository.internal()).tasks?.length||0,0);
+});
