@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="语境 Context Reader 的数据使用与权限说明。">
+  <title>隐私与数据 | 语境 Context Reader</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="./"><img src="icon.png" alt="" width="32" height="32"><span>语境 <span lang="en">Context Reader</span></span></a>
+    <nav aria-label="站点导航"><a href="./">主页</a><a href="https://github.com/Foolish-Han/ContextReader">项目主页</a></nav>
+  </header>
+  <main class="policy">
+    <p class="product-type">语境 Context Reader</p>
+    <h1>隐私与数据</h1>
+    <p class="lead">这份说明介绍扩展如何处理你选择阅读和保存的内容，以及可选连接服务会收到什么。</p>
+
+    <h2>在设备上保存什么</h2>
+    <p>表达、释义、语境、句段和人工修订保存在当前 Chrome 扩展的本机数据库中。任务进度、站点开关和外观设置保存在扩展本机存储中。</p>
+    <p>API Key 默认只保存在本次浏览器会话；如果你选择记住，它保存在扩展本地存储中，本扩展不再对该本地副本额外加密。ChatGPT 登录凭据保存在独立数据库中，以 AES-GCM 加密；明文只保留在扩展后台内存中。这不等同于系统钥匙串，也不能抵御已被控制的浏览器资料或可信扩展上下文。</p>
+
+    <h2>请求解释时发送什么</h2>
+    <p>你主动请求解释或重新生成时，扩展把所选内容、有限的附近原文、位置提示、页面标题和清理后的来源网址发送给你选择的模型服务。网址中不属于已知认证或跟踪参数的查询内容可能保留。新表达还可能触发一项学习资料请求。</p>
+    <p>模型服务按照其自身条款和隐私政策处理请求。匹配已有标记、悬停和阅读历史使用已保存资料，不调用模型。扩展没有单独的开发者遥测服务器。</p>
+
+    <h2>Google Drive 同步</h2>
+    <p>只有你主动连接 Google Drive 并完成授权后，知识库才会同步到你的 Google 账号中该应用专用的隐藏数据区。扩展只申请 <code>drive.appdata</code> 范围，不取得一般 Drive 文件浏览权限。任务、API Key、ChatGPT 凭据、站点开关和外观设置不随知识库同步。</p>
+    <p>本扩展对从 Google API 获取的信息的使用和传输遵循 <a href="https://developer.chrome.com/docs/webstore/program-policies/policies">Chrome Web Store 用户数据政策</a>，包括 Limited Use 要求。扩展不出售用户数据或将其用于个性化广告，项目开发者不会通过扩展主动读取用户的私人内容。</p>
+
+    <h2>网页权限和微信读书</h2>
+    <p>扩展需要访问普通 HTTP 和 HTTPS 页面，以标记已有表达、响应选区，以及连接你配置的模型服务。你可以在扩展弹窗中关闭指定网站。扩展还使用浏览器存储、当前标签页、脚本、右键菜单、定时器和身份授权权限。</p>
+    <p>微信读书适配在阅读页面启用时临时读取页面正在排版的文字与段落，以识别选区和有限上下文；不请求整本书接口，也不持久保存未提交的章节。ChatGPT 登录回调只在对应登录标签页观察本机回环地址，不读取文章请求正文。</p>
+
+    <h2>管理、导出与删除</h2>
+    <p>你可以在知识库修订或删除条目，并导出备份；删除会在连接同步时形成删除标记。断开 Google 同步保留本机知识并停止后续同步。移除 API Key、退出 ChatGPT 与删除知识库是不同操作。</p>
+    <p>卸载扩展或删除 Chrome 个人资料会移除本机数据。卸载前请先导出备份，并确认任何需要保留的同步已完成。跨设备恢复取决于同一应用和账号；真实服务的恢复行为仍需本人验证。</p>
+
+    <h2>问题与支持</h2>
+    <p>一般问题可以通过 <a href="https://github.com/Foolish-Han/ContextReader/issues">项目反馈页面</a>联系维护者。公开反馈请不要包含密钥、授权信息、私人文章或知识库；涉及安全和隐私的内容可使用项目的<a href="https://github.com/Foolish-Han/ContextReader/security/advisories/new">私下报告入口</a>。</p>
+  </main>
+  <footer><span>语境 Context Reader</span><span><a href="./">主页</a><a href="https://github.com/Foolish-Han/ContextReader/issues">反馈问题</a></span></footer>
+</body>
+</html>

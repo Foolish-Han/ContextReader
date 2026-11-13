@@ -1,6 +1,0 @@
-* text=auto eol=lf
-*.png binary
-*.woff2 binary
-*.zip binary
-vendor/siwc-local/** -text
-.agents/** -text
