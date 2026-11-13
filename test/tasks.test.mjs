@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createRepository} from '../src/shared/store.mjs';
 import {createTaskQueue,connectionIdentity} from '../src/background/tasks.mjs';
-import {DEFAULTS,sanitizeRequest,locateOccurrence} from '../src/shared/core.mjs';
+import {DEFAULTS,sanitizeRequest,locateOccurrence,contextKey,providerIdentity} from '../src/shared/core.mjs';
 const wait=async fn=>{for(let i=0;i<300;i++){const r=await fn();if(r)return r;await new Promise(r=>setTimeout(r,2));}throw new Error('condition not reached');};
 const request=(selected='honed',context='Skills can be honed.')=>sanitizeRequest({kind:'term',selected,context,sentence:context,before:context.slice(0,context.indexOf(selected)),after:context.slice(context.indexOf(selected)+selected.length),source:{url:'https://example.com/article',title:'Test'}});
 const output=(surface='honed',canonical=surface==='honed'?'hone':surface)=>({data:{kind:'term',expression:{surface,canonical,kind:'word',ipa:'',partOfSpeech:'动词',baseMeanings:['测试义'],meaning:'测试含义',note:'测试用法'},meaning:'本次测试语义',explanation:'测试用法',uncertainty:'',candidates:[]},model:'fast',provider:'fixture'});
@@ -15,6 +15,10 @@ test('durable receipt, concurrent submissions and cross-tab equivalent dedup use
  const h=harness(),receipts=await Promise.all(Array.from({length:8},()=>h.queue.submit(request())));assert.equal(new Set(receipts.map(r=>r.task.id)).size,1);await wait(()=>h.calls.length===1);assert.equal(h.disk().tasks[0].id,receipts[0].task.id);assert.equal((await h.queue.lookup(request())).task.state,'running');assert.equal(h.calls[0].kind,'quick');h.calls[0].resolve(output());await wait(async()=>(await h.queue.get(receipts[0].task.id)).state==='done');assert.equal((await h.queue.submit(request())).data.current.meaning,'本次测试语义');
  assert.equal(JSON.stringify(h.disk().tasks).includes('secret-not-for-task'),false);assert.equal('tasks' in await h.repository.snapshot(),false);
 });
+test('a later active retry is returned instead of an older failed task for the same occurrence',async()=>{
+ const h=harness(),req=request(),first=(await h.queue.submit(req)).task.id;await wait(()=>h.calls.length===1);h.calls[0].reject(new Error('old failure'));await wait(async()=>(await h.queue.get(first)).state==='failed');
+ const current=(await h.queue.regenerate({request:req})).task;await wait(()=>h.calls.length===2);assert.equal((await h.queue.lookup(req)).task.id,current.id);assert.equal((await h.queue.submit(req)).task.id,current.id);await h.queue.cancel(current.id);await h.queue.retry(first);assert.equal((await h.queue.lookup(req)).task.id,first);assert.equal((await h.queue.submit(req)).task.id,first);await h.queue.cancel(first);
+});
 test('two slots, fast explanations first and at most one learning request',async()=>{
  const h=harness();const ids=[];for(const word of ['honed','agnostic','tacitly'])ids.push((await h.queue.submit(request(word,`Read ${word} here.`))).task.id);
  await wait(()=>h.calls.length===2);assert.equal((await h.queue.get(ids[2])).state,'queued');h.calls[0].resolve(output('honed'));await wait(()=>h.calls.length===3);assert.equal(h.calls[2].kind,'quick');assert.equal(h.calls[2].payload.selected,'tacitly');
@@ -22,6 +26,41 @@ test('two slots, fast explanations first and at most one learning request',async
 });
 test('different contexts remain separate and canonical learning is shared once',async()=>{
  const h=harness();const a=(await h.queue.submit(request())).task,b=(await h.queue.submit(request('honed','A blade is honed.'))).task;assert.notEqual(a.id,b.id);await wait(()=>h.calls.length===2);h.calls[0].resolve(output());h.calls[1].resolve(output());await wait(()=>h.calls.some(c=>c.kind==='learn'));const snapshot=await h.repository.snapshot();assert.equal(snapshot.contexts.length,2);assert.equal(snapshot.entries.length,1);assert.equal((await h.queue.get(a.id)).learning.id,(await h.queue.get(b.id)).learning.id);assert.equal(h.calls.filter(c=>c.kind==='learn').length,1);
+});
+test('a known word accepts a contextual phrase without changing its identity, aliases or earlier history',async()=>{
+ const h=harness(),first=request('out','She spoke out.'),seed=output('out','out');seed.data.meaning='说出来';await h.repository.saveTerm({...seed.data.expression,meaning:seed.data.meaning},first,'seed',{});
+ const initial=await h.repository.snapshot(),entry=initial.entries[0];await h.repository.edit(entry.id,{base:'人工释义',note:'人工备注'});
+ const next={...request('out','My heart goes out to them.'),entryId:entry.id},id=(await h.queue.submit(next)).task.id;await wait(()=>h.calls.length===1);
+ assert.deepEqual(h.calls[0].payload.target,{canonical:'out',kind:'word'});
+ const phrase=output('goes out','go out');phrase.data.meaning='向他们表达同情';h.calls[0].resolve(phrase);
+ const done=await wait(async()=>{const t=await h.queue.get(id);return ['done','failed'].includes(t.state)?t:null;});assert.equal(done.state,'done',done.error);
+ const snapshot=await h.repository.snapshot();assert.equal(snapshot.entries.length,1);assert.equal(snapshot.entries[0].canonical,'out');assert.deepEqual(snapshot.entries[0].aliases,['out']);assert.deepEqual(snapshot.entries[0].baseMeanings,['人工释义']);assert.equal(snapshot.entries[0].note,'人工备注');assert.equal(snapshot.contexts.length,2);assert.equal(snapshot.contexts.find(c=>c.id===initial.contexts[0].id).meaning,'说出来');assert.equal(done.data.current.selected,'out');assert.equal(done.data.current.surface,'out');assert.equal(done.data.current.meaning,'向他们表达同情');assert.equal(h.calls.length,1);
+});
+test('regenerating a previously unexplained occurrence adds history without replacing the entry',async()=>{
+ const h=harness(),first=request('out','She spoke out.'),seed=output('out','out');await h.repository.saveTerm({...seed.data.expression,meaning:'原语境'},first,'seed',{});
+ const initial=await h.repository.snapshot(),entry=initial.entries[0],next={...request('out','My heart goes out to them.'),entryId:entry.id},id=(await h.queue.regenerate({request:next})).task.id;
+ await wait(()=>h.calls.length===1);const phrase=output('goes out','go out');phrase.data.expression.baseMeanings=['不同释义'];h.calls[0].resolve(phrase);
+ const done=await wait(async()=>{const t=await h.queue.get(id);return ['done','failed'].includes(t.state)?t:null;});assert.equal(done.state,'done',done.error);
+ const snapshot=await h.repository.snapshot();assert.equal(snapshot.contexts.length,2);assert.deepEqual(snapshot.entries[0].baseMeanings,entry.baseMeanings);assert.deepEqual(snapshot.entries[0].aliases,['out']);assert.equal(h.calls.length,1);
+});
+test('a missing target entry is never silently recreated or sent to inference',async()=>{
+ const h=harness(),id=(await h.queue.submit({...request(),entryId:'missing-entry'})).task.id;
+ const failed=await wait(async()=>{const t=await h.queue.get(id);return t.state==='failed'?t:null;});assert.match(failed.error,/不存在/);assert.equal(h.calls.length,0);assert.equal((await h.repository.snapshot()).entries.length,0);
+});
+test('regeneration refuses a deleted or unrelated context before making a model request',async()=>{
+ const h=harness(),req=request(),seed=output();await h.repository.saveTerm({...seed.data.expression,meaning:'原解释'},req,'seed',{});const saved=await h.repository.snapshot(),entryId=saved.entries[0].id;
+ await assert.rejects(h.queue.regenerate({request:{...req,entryId},contextId:'missing-context'}),/原语境已不存在/);assert.equal(h.calls.length,0);assert.equal((await h.repository.snapshot()).contexts[0].meaning,'原解释');
+});
+test('regeneration refuses to overwrite a different history record with the same current cache identity',async()=>{
+ const h=harness(),req=request(),seed=output(),hash=await contextKey(req,providerIdentity(h.config()));
+ await h.repository.saveTerm({...seed.data.expression,meaning:'模型 B 的历史'},req,hash,{mode:'api',model:'fast',service:'fixture'});await h.repository.saveTerm({...seed.data.expression,meaning:'模型 A 的历史'},req,'old-hash',{mode:'api',model:'old',service:'fixture'});
+ const initial=await h.repository.snapshot(),entryId=initial.entries[0].id,target=initial.contexts.find(c=>c.hash==='old-hash');
+ await assert.rejects(h.queue.regenerate({request:{...req,entryId},contextId:target.id}),/另一条.*语境|另一条.*历史/);assert.equal(h.calls.length,0);assert.deepEqual((await h.repository.snapshot()).contexts.map(c=>c.meaning),['模型 B 的历史','模型 A 的历史']);
+});
+test('regeneration preserves both records when different credentials produce the same cloud identity',async()=>{
+ const h=harness(),req=request(),seed=output();await h.repository.saveTerm({...seed.data.expression,meaning:'模型 B 的历史'},req,'other-credential-hash',{mode:'api',model:'fast',service:'fixture'});await h.repository.saveTerm({...seed.data.expression,meaning:'模型 A 的历史'},req,'old-hash',{mode:'api',model:'old',service:'fixture'});
+ const initial=await h.repository.snapshot(),entryId=initial.entries[0].id,target=initial.contexts.find(c=>c.hash==='old-hash'),id=(await h.queue.regenerate({request:{...req,entryId},contextId:target.id})).task.id;await wait(()=>h.calls.length===1);h.calls[0].resolve(output());
+ const failed=await wait(async()=>{const t=await h.queue.get(id);return ['done','failed'].includes(t.state)?t:null;});assert.equal(failed.state,'failed');assert.match(failed.error,/另一条.*语境/);assert.deepEqual((await h.repository.snapshot()).contexts.map(c=>c.meaning),['模型 B 的历史','模型 A 的历史']);
 });
 test('failed task acceptance never starts a model request',async()=>{
  const h=harness();await h.queue.initialize();h.fail(true);await assert.rejects(h.queue.submit(request()),/disk/);assert.equal(h.calls.length,0);
@@ -53,6 +92,15 @@ test('explicit regeneration bypasses cache, replaces the same context and refres
 test('failed regeneration preserves old content, and successful regeneration preserves manual edits',async()=>{
  const h=harness(),first=(await h.queue.submit(request())).task.id;await wait(()=>h.calls.length===1);h.calls[0].resolve(output());await wait(()=>h.calls.length===2);h.calls[1].resolve(learnOutput);await wait(async()=>(await h.queue.get(first)).learning?.state==='done');const saved=(await h.queue.get(first)).data;
  const req={...request(),entryId:saved.entry.id},bad=(await h.queue.regenerate({request:req,contextId:saved.current.id})).task.id;await wait(()=>h.calls.length===3);h.calls[2].reject(new Error('model unavailable'));await wait(async()=>(await h.queue.get(bad)).state==='failed');assert.equal((await h.repository.snapshot()).contexts[0].meaning,'本次测试语义');await h.repository.edit(saved.entry.id,{base:'人工释义',note:'人工备注'});const retry=(await h.queue.regenerate({request:req,contextId:saved.current.id})).task.id;await wait(()=>h.calls.length===4);h.calls[3].resolve(output());await wait(async()=>(await h.queue.get(retry)).state==='done');assert.deepEqual((await h.repository.snapshot()).entries[0].baseMeanings,['人工释义']);
+});
+test('older completed tasks still resolve the same context after regeneration with another model',async()=>{
+ const h=harness(),req=request(),first=(await h.queue.submit(req)).task.id;await wait(()=>h.calls.length===1);h.calls[0].resolve(output());const completed=await wait(async()=>{const t=await h.queue.get(first);return t.state==='done'?t:null;});
+ h.change({model:'another-model'});const id=(await h.queue.regenerate({request:{...req,entryId:completed.entryId},contextId:completed.data.current.id})).task.id;await wait(()=>h.calls.filter(c=>c.kind==='quick').length===2);h.calls.filter(c=>c.kind==='quick')[1].resolve(output());await wait(async()=>(await h.queue.get(id)).state==='done');
+ assert.equal((await h.queue.get(first)).data.current.id,completed.data.current.id);
+});
+test('regeneration keeps an existing occurrence and does not save the model’s expanded phrase as an alias',async()=>{
+ const h=harness(),req=request('out','My heart goes out to them.'),seed=output('out','out');await h.repository.saveTerm({...seed.data.expression,meaning:'旧解释'},req,'seed',{});const initial=await h.repository.snapshot(),entry=initial.entries[0],id=(await h.queue.regenerate({request:{...req,entryId:entry.id},contextId:initial.contexts[0].id})).task.id;
+ await wait(()=>h.calls.length===1);h.calls[0].resolve(output('goes out','out'));const done=await wait(async()=>{const t=await h.queue.get(id);return ['done','failed'].includes(t.state)?t:null;});assert.equal(done.state,'done',done.error);const saved=await h.repository.snapshot();assert.equal(saved.contexts.length,1);assert.equal(saved.contexts[0].id,initial.contexts[0].id);assert.equal(saved.contexts[0].selected,'out');assert.deepEqual(saved.entries[0].aliases,['out']);
 });
 test('rate limiting pauses the remaining connection without draining queued requests',async()=>{
  const h=harness();const a=(await h.queue.submit(request())).task;await h.queue.submit(request('other','Read other here.'));const c=(await h.queue.submit(request('third','Read third here.'))).task;await wait(()=>h.calls.length===2);h.calls[0].reject(Object.assign(new Error('rate limit'),{code:'rate-limit'}));await wait(async()=>(await h.queue.get(a.id)).state==='blocked');assert.equal((await h.queue.get(c.id)).state,'blocked');assert.equal((await h.queue.submit(request('fourth','Read fourth here.'))).task.state,'blocked');assert.equal(h.calls.length,2);
@@ -86,6 +134,17 @@ test('regeneration carries the complete previous expression, keeps missing IPA a
 });
 test('passage task commits occurrence positions together with its saved explanation',async()=>{
  const h=harness(),req={...request('Read it.','Read it. Read it.'),kind:'passage'},id=(await h.queue.submit(req)).task.id;await wait(()=>h.calls.length===1);h.calls[0].resolve({data:{kind:'passage',meaning:'句意',explanation:'结构',uncertainty:'',candidates:[]},model:'fast',provider:'fixture'});await wait(async()=>(await h.queue.get(id)).state==='done');assert.equal((await h.repository.passageIndex(req.source.url))[0].request.after,'Read it.');assert.equal(h.calls.length,1);
+});
+test('regenerating a passage with another model retains both cache identities and the same note',async()=>{
+ const h=harness(),req={...request('Read it.','Read it. Read it.'),kind:'passage'},first=(await h.queue.submit(req)).task.id;await wait(()=>h.calls.length===1);const passage=meaning=>({data:{kind:'passage',meaning,explanation:'结构',uncertainty:'',candidates:[]},model:'fast',provider:'fixture'});h.calls[0].resolve(passage('原句意'));
+ const initial=await wait(async()=>{const t=await h.queue.get(first);return t.state==='done'?t.data.snippet:null;}),oldHash=initial.hash;h.change({model:'another'});const nextHash=await contextKey(req,providerIdentity(h.config())),id=(await h.queue.regenerate({request:req,contextId:initial.id})).task.id;await wait(()=>h.calls.length===2);h.calls[1].resolve({...passage('新句意'),model:'another'});await wait(async()=>(await h.queue.get(id)).state==='done');
+ const snapshot=await h.repository.snapshot();assert.equal(snapshot.snippets.length,1);assert.equal(snapshot.snippets[0].id,initial.id);assert.equal((await h.repository.cached(oldHash)).snippet.meaning,'新句意');assert.equal((await h.repository.cached(nextHash)).snippet.id,initial.id);
+ const imported=harness();await imported.repository.import(snapshot);assert.equal((await imported.repository.cached(oldHash)).snippet.meaning,'新句意');assert.equal((await imported.repository.cached(nextHash)).snippet.meaning,'新句意');
+});
+test('passage regeneration does not collapse another note with the same cloud identity',async()=>{
+ const h=harness(),req={...request('Read it.','Read it.'),kind:'passage'},result={meaning:'句意',explanation:'结构',uncertainty:'',candidates:[]};
+ await h.repository.saveSnippet({...result,meaning:'模型 B 的句意'},req,'other-credential-hash',{mode:'api',model:'fast',service:'fixture'});await h.repository.saveSnippet({...result,meaning:'模型 A 的句意'},req,'old-hash',{mode:'api',model:'old',service:'fixture'});const target=(await h.repository.snapshot()).snippets.find(s=>s.hash==='old-hash');
+ const id=(await h.queue.regenerate({request:req,contextId:target.id})).task.id;await wait(()=>h.calls.length===1);h.calls[0].resolve({data:{kind:'passage',...result},model:'fast',provider:'fixture'});const failed=await wait(async()=>{const t=await h.queue.get(id);return ['done','failed'].includes(t.state)?t:null;});assert.equal(failed.state,'failed');assert.deepEqual((await h.repository.snapshot()).snippets.map(s=>s.meaning),['模型 B 的句意','模型 A 的句意']);
 });
 
 test('outer punctuation may be trimmed without substituting a different expression',async()=>{

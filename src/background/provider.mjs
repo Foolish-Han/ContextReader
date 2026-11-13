@@ -19,7 +19,7 @@ export async function infer(settings,apiKey,task,payload,{signal,onProgress=()=>
  try{
   if(!oauth&&settings.protocol==='chat'){
    const stream=await client.chat.completions.create({model:settings.model,messages:[{role:'system',content:prompt.system+(task==='learn'?'':'\n输出必须符合以下 JSON Schema：'+JSON.stringify(QUICK_SCHEMA))},{role:'user',content:prompt.input}],response_format:{type:'json_object'},stream:true},{signal});
-   for await(const event of stream){text+=event.choices?.[0]?.delta?.content||'';if(event.usage)usage=event.usage;onProgress(oauth?'正在使用 ChatGPT 订阅生成解释…':'正在生成解释…');}completed=true;
+   for await(const event of stream){const choice=event.choices?.[0];text+=choice?.delta?.content||'';if(choice?.delta?.refusal)throw new Error('模型没有完整生成解释，请重试。');if(choice?.finish_reason){if(choice.finish_reason!=='stop')throw new Error('模型没有完整生成解释，请重试。');completed=true;}if(event.usage)usage=event.usage;onProgress('正在生成解释…');}
   }else{
    // Learning uses compact JSON mode, with an explicit JSON marker in the user
    // message as required by that mode, and local field validation after completion.

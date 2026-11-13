@@ -19,6 +19,7 @@
    npm run verify:repo
    npm run test:ui
    npm run test:marks
+   npm run test:weread
    npm run test:cloud
    npm run test:async
    npm run test:auto
@@ -46,3 +47,5 @@ npm run package
 遵循 SemVer。修复或发行工程改动使用 patch；行为新增使用 minor；不兼容数据或接口变更先设计迁移再升 major。发行说明区分模拟服务、真实服务和待验证的跨设备行为。
 
 完整发行包包含非商业 DevKit，不能将根 MIT 许可扩张到该组件。见[第三方许可](../THIRD_PARTY_NOTICES.md)。
+
+GitHub 手动安装包使用项目固定公钥和对应 OAuth 客户端。Chrome 网上应用店分配独立扩展 ID，商店上传包及其 OAuth 客户端单独配置；不要更改手动安装版的公钥来冒充商店版。切换版本前导出备份并确认导入结果，真实账号跨版本同步仍需单独验收。

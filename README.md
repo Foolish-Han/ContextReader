@@ -7,7 +7,7 @@
 
 A Chrome extension for contextual English reading, asynchronous LLM explanations, and a personal knowledge library with Google Drive sync.
 
-[下载安装](https://github.com/Foolish-Han/ContextReader/releases/latest) | [使用与排错](docs/troubleshooting.md) | [开发指南](docs/development.md) | [路线图](docs/roadmap.md) | [反馈问题](https://github.com/Foolish-Han/ContextReader/issues/new/choose)
+[下载安装](https://github.com/Foolish-Han/ContextReader/releases/latest) | [官网](https://foolish-han.github.io/ContextReader/) | [使用与排错](docs/troubleshooting.md) | [开发指南](docs/development.md) | [路线图](docs/roadmap.md) | [反馈问题](https://github.com/Foolish-Han/ContextReader/issues/new/choose)
 
 ## 阅读流程
 
@@ -37,13 +37,15 @@ A Chrome extension for contextual English reading, asynchronous LLM explanations
 
 ## 安装
 
-当前是可加载试用版，尚未上架 Chrome Web Store。两种模型连接方式均只需要 Chrome，无需运行认证脚本或本机服务。
+Chrome 网上应用店版本已提交审核，实际可用状态以商店页面为准。当前也可通过 GitHub Release 手动安装。两种模型连接方式均只需要 Chrome，无需运行认证脚本或本机服务。
 
 1. 从 [Releases](https://github.com/Foolish-Han/ContextReader/releases/latest) 下载 `context-reader-版本号.zip`，解压到长期使用的目录。
 2. 打开 `chrome://extensions`，开启“开发者模式”，点击“加载已解压的扩展程序”，选择解压目录里的 `dist`。
 3. 打开扩展设置，选择下方一种模型连接方式。刷新英文文章，划选词句即可使用。
 
 升级时保留同一个安装目录与扩展 ID，在扩展管理页重新加载，再刷新文章。源码使用者按[开发指南](docs/development.md)构建主目录的 `dist`。Chrome 内部页、扩展页、内置 PDF 等受保护页面无法注入。
+
+GitHub 手动安装版与商店版的扩展 ID 不同，本机数据和登录不会自动共享。切换版本前，先从旧版知识库导出备份并保留旧版；在新版导入备份，按需重新连接账号，确认数据完整后再处理旧版。真实账号的跨版本 Drive 同步尚未完成验证。
 
 ### API Key
 

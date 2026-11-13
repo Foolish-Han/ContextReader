@@ -1,0 +1,14 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "overused-font",
+        "value": "geist",
+        "createdAt": "2026-11-13T09:41:51.980Z",
+        "reason": "User confirmed: AGENTS.md specifies Geist for controls, and the preview follows the project design."
+      }
+    ]
+  }
+}

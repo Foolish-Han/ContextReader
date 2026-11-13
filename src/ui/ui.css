@@ -180,6 +180,7 @@ html.card-document {background:transparent;overflow:hidden}
 .row-word>span[lang=en] {font:550 var(--text-reading)/1.4 var(--word);letter-spacing:-.02em;overflow-wrap:anywhere;color:var(--ink)}
 .row-word>small {font-size:var(--text-small);color:var(--muted)}
 .entry-row>p {font-size:var(--text-body);color:var(--muted);line-height:1.7;margin-top:8px;overflow-wrap:anywhere}
+.entry-row>.row-match {font-size:var(--text-small);color:var(--muted)}
 .row-meta {display:flex;justify-content:space-between;gap:8px 12px;flex-wrap:wrap;font-size:var(--text-small);color:var(--muted);margin-top:12px;overflow-wrap:anywhere}
 .row-meta>span {overflow-wrap:anywhere}
 .snippet-summary {color:var(--ink)!important;margin-top:0!important}

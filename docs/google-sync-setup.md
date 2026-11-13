@@ -8,7 +8,7 @@
 
 ## 应用配置
 
-本项目 Google 客户端类型为 Chrome 扩展，绑定稳定扩展 ID `hndhiknbifkbmpebjflifdecfpcliddd`。Google Client ID 与扩展公钥都是需要随应用分发的公开标识，不是用户凭据。
+GitHub 手动安装版的 Google 客户端类型为 Chrome 扩展，绑定稳定扩展 ID `hndhiknbifkbmpebjflifdecfpcliddd`。商店版使用独立的扩展 ID 和对应 OAuth 客户端。两个版本的本机数据与登录相互独立，跨版本同步尚未用真实账号验收；迁移时先导出并导入知识库备份。Google Client ID 与扩展公钥都是需要随应用分发的公开标识，不是用户凭据。
 
 - `extension/google-oauth.json` 保存公开 Client ID，构建时写入 manifest。
 - 只申请 `https://www.googleapis.com/auth/drive.appdata`，用 Chrome Identity API 获取本人授权。
