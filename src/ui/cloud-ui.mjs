@@ -20,7 +20,7 @@ ${!state.configured?'<p class="cloud-error" role="alert">此安装包缺少应�
 ${state.error?`<p class="cloud-error" role="alert">${e(state.error)}</p>`:''}
 <div class="action-row">${!connected?'<button type="button" class="button primary" data-cloud-connect '+(busy?'disabled':'')+'>连接 Google Drive</button>':'<button type="button" class="text-button" data-cloud-sync '+(busy||state.status==='syncing'?'disabled':'')+'>'+icon('refresh')+'立即同步</button>'}${state.enabled?'<button type="button" class="text-button" data-cloud-disconnect '+(busy?'disabled':'')+'>断开连接</button>':''}</div>
 <p class="cloud-action-error error" role="alert"></p>
-<details class="connection-guide" data-cloud-details="sync"><summary>同步内容与频率</summary><p>新增、修订和删除后自动同步；运行期间每分钟检查云端，Chrome 启动时恢复检查。断网后保留本机改动，连接恢复后自动重试。</p><p>同步包括表达、英美音标、学习资料和语境历史。API Key、ChatGPT 凭据、网站偏好和生成队列仅留在本机。</p></details>
+<details class="connection-guide" data-cloud-details="sync"><summary>同步内容与频率</summary><p>新增、修订和删除后自动同步；运行期间每分钟检查云端，Chrome 启动时恢复检查。断网后保留本机改动，连接恢复后自动重试。</p><p>同步包括表达、英美音标、逐词拆解、学习资料和语境历史。API Key、ChatGPT 凭据、网站偏好和生成队列仅留在本机。</p></details>
 <details class="connection-guide cloud-diagnostics" data-cloud-details="diagnostics"><summary>连接诊断</summary><p>版本：${e(chrome.runtime.getManifest().version)}<br>扩展 ID：<code>${e(chrome.runtime.id)}</code><br>应用 Client ID：<code>${e(state.clientId||'未配置')}</code></p><p>更新后请重新加载扩展，并刷新本页。</p></details>`;
   }
   if(html===lastHtml)return;lastHtml=html;

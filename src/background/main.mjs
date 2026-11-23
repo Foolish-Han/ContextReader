@@ -118,12 +118,14 @@ export async function dispatch(type,payload,sender,progress=()=>{}){
   if(type==='CR_PAUSE'){const r=await repository.pause(payload.id,payload.paused);await publish();return r;}
   if(type==='CR_EDIT'){const r=await repository.edit(payload.id,payload);await publish();return r;}
   if(type==='CR_DELETE_ENTRY'){const r=await repository.deleteEntry(payload.id);await tasks.reconcile();await publish();return r;}
+  if(type==='CR_DELETE_SNIPPET'){const r=await repository.deleteSnippet(payload.id);await tasks.reconcile();await publish();return r;}
   if(type==='CR_DELETE_CONTEXT'){const r=await repository.deleteContext(payload.id);await publish();return r;}
   if(type==='CR_ENRICH')return tasks.enrich(payload.id);
   if(type==='CR_SAVE_CANDIDATE'){const snapshot=await repository.snapshot(),snippet=snapshot.snippets.find(s=>s.id===payload.snippetId);const candidate=snippet?.candidates[payload.index];if(!candidate)throw new Error('候选表达已不存在。');const request={kind:'term',selected:candidate.surface,sentence:snippet.sentence,context:snippet.context,...(surroundings(snippet.context,candidate.surface)||{before:'[位置未确认]',after:''}),source:snippet.source,entryId:''};const hash=await requestHash(request);const result={expression:candidate,meaning:candidate.meaning,explanation:candidate.note,uncertainty:snippet.uncertainty};return commitCandidate(result,request,hash,snippet.provider);}
   if(type==='CR_ENABLE')return reading.setEnabled(payload.tabId,true);
   if(type==='CR_SITE_STATE')return reading.tabState(payload.tabId);
   if(type==='CR_SET_SITE_ENABLED')return reading.setEnabled(payload.tabId,!!payload.enabled);
+  if(type==='CR_TOGGLE_MARKS'){await chrome.tabs.sendMessage(payload.tabId,{type:'CR_TOGGLE_MARKS'});return reading.tabState(payload.tabId);}
   if(type==='CR_OPEN_LIBRARY'){await chrome.tabs.create({url:chrome.runtime.getURL('library.html')+(payload.view==='tasks'?'?view=tasks'+(payload.taskId?'&task='+encodeURIComponent(payload.taskId):''):(payload.id?'?entry='+encodeURIComponent(payload.id):''))});return true;}
   if(type==='CR_OPEN_SETTINGS'){await chrome.tabs.create({url:chrome.runtime.getURL('options.html')});return true;}
   throw new Error('不支持的操作。');

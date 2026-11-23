@@ -9,6 +9,30 @@ const expression={canonical:'tacitly',surface:'tacitly',kind:'word',ipa:'',ipaUK
 const request=(context='It is learned tacitly.')=>({kind:'term',selected:'tacitly',sentence:context,context,before:context.slice(0,context.indexOf('tacitly')).trim(),after:context.slice(context.indexOf('tacitly')+7).trim(),source:{url:'https://example.com/post',title:'Post'}});
 const save=(r,hash='one',context)=>r.saveTerm(expression,request(context),hash,{mode:'api',model:'fast',service:'openai-sdk'});
 const envelope=async r=>(await r.cloudPayload()).envelope;
+test('legacy cloud entries without components merge cleanly with newer word-breakdown entries',async()=>{
+ const legacyRepo=repository(),modernRepo=repository();
+ await save(legacyRepo,'legacy-1');
+ const legacyEnv=await envelope(legacyRepo);
+ assert.equal(legacyEnv.documents.find(d=>d.group==='entries').fields.components,undefined);
+ await modernRepo.mergeCloud([legacyEnv]);
+ assert.equal((await modernRepo.snapshot()).entries.length,1);
+ await modernRepo.saveTerm({
+  canonical:'Goldman Sachs Group',
+  surface:'Goldman Sachs Group',
+  kind:'compound',
+  ipaUK:'/ˌɡəʊldmən ˈsæks ɡruːp/',
+  ipaUS:'/ˌɡoʊldmən ˈsæks ɡruːp/',
+  partOfSpeech:'专有名词',
+  baseMeanings:['高盛集团'],
+  components:[{word:'Goldman',ipaUK:'/ˈɡəʊldmən/',ipaUS:'/ˈɡoʊldmən/',partOfSpeech:'专有名词',meaning:'戈德曼'},{word:'Sachs',ipaUK:'/sæks/',ipaUS:'/sæks/',partOfSpeech:'专有名词',meaning:'萨克斯'}],
+  meaning:'高盛集团',
+  note:'机构名'
+ },{kind:'term',selected:'Goldman Sachs Group',sentence:'Goldman Sachs Group said.',context:'Goldman Sachs Group said.',before:'',after:'said.',source:{url:'https://example.com/gs',title:'GS'}},'gs-1',{mode:'api',model:'fast',service:'openai-sdk'});
+ await legacyRepo.mergeCloud([await envelope(modernRepo)]);
+ const merged=(await legacyRepo.snapshot()).entries.find(e=>e.canonical==='Goldman Sachs Group');
+ assert.equal(merged.components.length,2);
+ assert.equal(merged.components[1].word,'Sachs');
+});
 test('passage position anchors sync and legacy cloud documents remain readable without invented positions',async()=>{
  const a=repository(),b=repository(),req={...request('Read it. Read it.'),kind:'passage',selected:'Read it.',before:'',after:'Read it.'};
  await a.saveSnippet({meaning:'第一句',explanation:'',uncertainty:'',candidates:[]},req,'passage',{});const current=await envelope(a);await b.mergeCloud([current]);assert.equal((await b.snapshot()).snippets[0].after,'Read it.');
