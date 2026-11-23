@@ -3,6 +3,28 @@ export const DEFAULTS = Object.freeze({ mode: 'oauth', model: '', oauthModel:'gp
 export const norm = value => String(value ?? '').normalize('NFC').replace(/\s+/gu, ' ').trim();
 export const keyOf = value => norm(value).toLocaleLowerCase('en-US');
 export const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+export const isMultiPart = value => /[\s\-\u2010-\u2015]/u.test(norm(value));
+export function normalizeIpa(value) {
+  const raw = norm(value);
+  if (!raw) return '';
+  const body = raw.replace(/^[\/\[\s]+|[\/\]\s]+$/gu, '').trim();
+  if (!body || /^(?:n\/?a|none|null|unknown|暂无|无|待确认|读音待确认|未填写|未提供|-|—)$/iu.test(body)) return '';
+  return `/${body}/`;
+}
+export function cleanComponents(raw) {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter(c => c && typeof c === 'object' && typeof c.word === 'string' && norm(c.word))
+    .slice(0, 12)
+    .map(c => ({
+      word: norm(c.word).slice(0, 120),
+      ipaUK: normalizeIpa(String(c.ipaUK ?? '').slice(0, 160)),
+      ipaUS: normalizeIpa(String(c.ipaUS ?? '').slice(0, 160)),
+      partOfSpeech: norm(c.partOfSpeech ?? '').slice(0, 80),
+      meaning: norm(c.meaning ?? '').slice(0, 600)
+    }))
+    .filter(c => c.meaning);
+}
 export function safeUrl(value) {
   try { const u = new URL(value); if (!['https:', 'http:'].includes(u.protocol)) return ''; u.username = ''; u.password = ''; u.hash = ''; for (const name of [...u.searchParams.keys()]) if (/^(utm_|token$|auth$|session$|key$|signature$)/i.test(name)) u.searchParams.delete(name); return u.href; } catch { return ''; }
 }

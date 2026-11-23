@@ -17,12 +17,14 @@ export function searchKnowledge(snapshot,view,query){
    if(keyOf(item.canonical).startsWith(needle)&&keyOf(item.canonical)!==needle)check(item.canonical,1);
    for(const alias of item.aliases||[])check(alias,3,'匹配词形',1);
    for(const meaning of item.baseMeanings||[])check(meaning,4);
+   for(const comp of item.components||[]){check(comp.word,5,'匹配拆解');check(comp.meaning,5,'匹配拆解');}
    check(item.note,5,'匹配释义');
    for(const context of contexts.get(item.id)||[]){check(context.meaning,6,'匹配语境');check(context.explanation,6,'匹配语境');check(context.sentence,7,'匹配原句');check(context.context,7,'匹配原文');}
    check(item.learning?.usage,8,'匹配用法');check(item.learning?.memory,8,'匹配记忆');
    for(const example of item.learning?.examples||[]){check(example.english,8,'匹配例句');check(example.chinese,8,'匹配例句');}
   }else{
    check(item.text,1,'匹配原文',0);check(item.meaning,2);check(item.explanation,3,'匹配释义');check(item.context,4,'匹配原文');
+   for(const cand of item.candidates||[]){check(cand.canonical,5,'匹配候选');check(cand.meaning,5,'匹配候选');}
   }
   return best;
  };

@@ -8,14 +8,24 @@ const snapshot={entries:[
  entry('context','fellow',{updatedAt:'2026-11-11'}),
  entry('prefix','outside',{updatedAt:'2026-11-12'}),
  entry('exact','out',{updatedAt:'2026-01-01',baseMeanings:['向外']}),
- entry('alias','go',{aliases:['go','went'],baseMeanings:['去']})
+ entry('alias','go',{aliases:['go','went'],baseMeanings:['去']}),
+ entry('phrase','Goldman Sachs Group',{kind:'compound',baseMeanings:['高盛集团'],components:[{word:'Goldman',ipaUK:'/ˈɡəʊldmən/',ipaUS:'/ˈɡoʊldmən/',partOfSpeech:'专有名词',meaning:'戈德曼'},{word:'Sachs',ipaUK:'/sæks/',ipaUS:'/sæks/',partOfSpeech:'专有名词',meaning:'萨克斯'},{word:'Group',ipaUK:'/ɡruːp/',ipaUS:'/ɡruːp/',partOfSpeech:'名词',meaning:'集团'}]})
 ],contexts:[{entryId:'context',meaning:'同伴',sentence:'They went out together.',context:'They went out together.'}],snippets:[{id:'passage',text:'A longer passage about study.',meaning:'关于学习',context:'A longer passage about study.',createdAt:'2026-01-01'}]};
 
 test('search ranks exact expressions above prefixes and historical sentences and ignores internal fields',()=>{
  const results=searchKnowledge(snapshot,'entries',' OUT ');assert.deepEqual(results.map(r=>r.item.id),['exact','prefix','context']);assert.equal(results[2].match.label,'匹配原句');assert.match(matchExcerpt(results[2].match.text,'out'),/went out together/);
 });
-test('aliases, Chinese meanings, historical explanations and passage text remain searchable',()=>{
- assert.equal(searchKnowledge(snapshot,'entries','WENT')[0].item.id,'alias');assert.equal(searchKnowledge(snapshot,'entries','向外')[0].item.id,'exact');assert.equal(searchKnowledge(snapshot,'entries','同伴')[0].item.id,'context');assert.equal(searchKnowledge(snapshot,'snippets','study')[0].item.id,'passage');assert.equal(searchKnowledge(snapshot,'snippets','学习')[0].item.id,'passage');assert.equal(searchKnowledge(snapshot,'entries','internalOutput').length,0);
+test('aliases, Chinese meanings, component breakdowns, historical explanations and passage text remain searchable',()=>{
+ assert.equal(searchKnowledge(snapshot,'entries','WENT')[0].item.id,'alias');
+ assert.equal(searchKnowledge(snapshot,'entries','向外')[0].item.id,'exact');
+ assert.equal(searchKnowledge(snapshot,'entries','同伴')[0].item.id,'context');
+ assert.equal(searchKnowledge(snapshot,'entries','Sachs')[0].item.id,'phrase');
+ const sachsCn=searchKnowledge(snapshot,'entries','萨克斯');
+ assert.equal(sachsCn[0].item.id,'phrase');
+ assert.equal(sachsCn[0].match.label,'匹配拆解');
+ assert.equal(searchKnowledge(snapshot,'snippets','study')[0].item.id,'passage');
+ assert.equal(searchKnowledge(snapshot,'snippets','学习')[0].item.id,'passage');
+ assert.equal(searchKnowledge(snapshot,'entries','internalOutput').length,0);
 });
 test('empty search keeps recent-first order and excerpts preserve text around a distant match',()=>{
  assert.equal(searchKnowledge(snapshot,'entries','  ')[0].item.id,'prefix');const excerpt=matchExcerpt('a'.repeat(300)+' target '+'b'.repeat(300),'target');assert.ok(excerpt.startsWith('…'));assert.ok(excerpt.includes('target'));assert.ok(excerpt.endsWith('…'));

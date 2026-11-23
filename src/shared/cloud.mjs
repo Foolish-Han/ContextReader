@@ -1,18 +1,19 @@
-import {digest,keyOf,norm,safeUrl} from './core.mjs';
+import {digest,keyOf,norm,safeUrl,cleanComponents} from './core.mjs';
 
 const FIELDS={
- entries:['canonical','aliases','kind','ipa','ipaUK','ipaUS','partOfSpeech','baseMeanings','note','paused','edited','learning','createdAt'],
+ entries:['canonical','aliases','kind','ipa','ipaUK','ipaUS','partOfSpeech','baseMeanings','components','note','paused','edited','learning','createdAt'],
  contexts:['entryKey','hash','hashAliases','selected','surface','sentence','context','before','after','meaning','explanation','uncertainty','source','provider','createdAt'],
  snippets:['hash','text','context','sentence','before','after','meaning','explanation','uncertainty','candidates','source','provider','createdAt']
 };
-const optionalField=(group,name)=>group==='snippets'&&['before','after'].includes(name);
+const optionalField=(group,name)=>(group==='snippets'&&['before','after'].includes(name))||(group==='entries'&&name==='components');
 const text=(v,n=4000)=>String(v??'').slice(0,n);
 const source=v=>({url:safeUrl(v?.url),title:text(v?.title,240)});
 const provider=v=>({mode:text(v?.mode,60),model:text(v?.model,160),service:text(v?.service,160)});
 function learning(v){return {status:v?.usage||v?.memory||v?.examples?.length?'ready':'empty',usage:text(v?.usage),memory:text(v?.memory),etymology:v?.etymologySource?text(v?.etymology):'',etymologySource:safeUrl(v?.etymologySource),examples:(Array.isArray(v?.examples)?v.examples:[]).slice(0,4).map(x=>({english:text(x.english,1500),chinese:text(x.chinese,1500)}))};}
-function expression(v){return {canonical:text(v?.canonical,160),surface:text(v?.surface,240),kind:['word','phrase','compound'].includes(v?.kind)?v.kind:'word',ipa:text(v?.ipa,160),ipaUK:text(v?.ipaUK,160),ipaUS:text(v?.ipaUS,160),partOfSpeech:text(v?.partOfSpeech,120),baseMeanings:(v?.baseMeanings||[]).slice(0,6).map(x=>text(x,400)),meaning:text(v?.meaning),note:text(v?.note)};}
+function expression(v){const comps=cleanComponents(v?.components);return {canonical:text(v?.canonical,160),surface:text(v?.surface,240),kind:['word','phrase','compound'].includes(v?.kind)?v.kind:'word',ipa:text(v?.ipa,160),ipaUK:text(v?.ipaUK,160),ipaUS:text(v?.ipaUS,160),partOfSpeech:text(v?.partOfSpeech,120),baseMeanings:(v?.baseMeanings||[]).slice(0,6).map(x=>text(x,400)),...(comps.length?{components:comps}:{}),meaning:text(v?.meaning),note:text(v?.note)};}
 function field(group,name,value){
  if(name==='source')return source(value);if(name==='provider')return provider(value);if(name==='learning')return learning(value);
+ if(name==='components')return cleanComponents(value);
  if(name==='candidates')return (Array.isArray(value)?value:[]).slice(0,8).map(expression);
  if(['aliases','hashAliases','baseMeanings'].includes(name)){const items=[...new Set((Array.isArray(value)?value:[]).filter(x=>typeof x==='string').map(x=>text(x,name==='baseMeanings'?400:240)))];if(name!=='baseMeanings')items.sort();return items.slice(0,name==='baseMeanings'?6:name==='aliases'?40:24);}
  if(['paused','edited'].includes(name))return !!value;
@@ -34,7 +35,7 @@ async function flatten(data){const records=new Map(),entryKeys=new Map(data.entr
  for(const group of Object.keys(FIELDS))for(const raw of data[group]){
   const canonical=group==='entries'?keyOf(raw.canonical):entryKeys.get(raw.entryId);if(group==='contexts'&&!canonical)continue;
   const key=group==='entries'?canonical:group==='contexts'?await cloudContextKey(canonical,raw):await cloudSnippetKey(raw);
-  const id=group+':'+(group==='entries'?await digest(key):key),values={};for(const name of FIELDS[group]){if(optionalField(group,name)&&!Object.hasOwn(raw,name))continue;values[name]=field(group,name,name==='entryKey'?canonical:name==='hashAliases'?[...(raw.hashAliases||[]),raw.hash].filter(Boolean):raw[name]);}
+  const id=group+':'+(group==='entries'?await digest(key):key),values={};for(const name of FIELDS[group]){if(optionalField(group,name)&&(!Object.hasOwn(raw,name)||(name==='components'&&(!Array.isArray(raw.components)||!raw.components.length))))continue;values[name]=field(group,name,name==='entryKey'?canonical:name==='hashAliases'?[...(raw.hashAliases||[]),raw.hash].filter(Boolean):raw[name]);}
   records.set(id,{id,group,key,values,localId:raw.id});
  }return records;
 }
@@ -80,7 +81,8 @@ export async function mergeCloud(d,envelopes){const m=meta(d);let changed=false;
  const previousEntries=new Map(d.entries.map(e=>[keyOf(e.canonical),e])),previousSnippets=new Map(d.snippets.map(s=>[s.id,s])),previousRecords=await flatten(d),localIds=new Map([...previousRecords].map(([id,r])=>[id,r.localId]));
  const entries=[],contexts=[],snippets=[],entriesByKey=new Map();
  const values=doc=>Object.fromEntries(Object.entries(doc.fields).map(([name,reg])=>[name,structuredClone(reg.value)]));
- for(const doc of Object.values(m.documents))if(doc.group==='entries'&&doc.present.value){const v=values(doc);if(!v.canonical||keyOf(v.canonical)!==doc.key)throw new Error('云端表达名校验失败。');const existing=previousEntries.get(doc.key),entry={...v,id:existing?.id||crypto.randomUUID(),contextCount:0,updatedAt:new Date(Math.max(doc.present.stamp[0],...Object.values(doc.fields).map(r=>r.stamp[0]))).toISOString()};
+ for(const doc of Object.values(m.documents))if(doc.group==='entries'&&doc.present.value){const v=values(doc);if(!v.canonical||keyOf(v.canonical)!==doc.key)throw new Error('云端表达名校验失败。');const existing=previousEntries.get(doc.key),comps=cleanComponents(v.components),entry={...v,...(comps.length?{components:comps}:{}),id:existing?.id||crypto.randomUUID(),contextCount:0,updatedAt:new Date(Math.max(doc.present.stamp[0],...Object.values(doc.fields).map(r=>r.stamp[0]))).toISOString()};
+  if(!comps.length)delete entry.components;
   // A local task still owns its pending state, even while ready data is pulled.
   if(existing?.learning?.status==='pending')entry.learning={...entry.learning,status:'pending',refreshing:!!entry.learning.usage};entries.push(entry);entriesByKey.set(doc.key,entry);
  }
